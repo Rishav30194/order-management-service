@@ -291,7 +291,7 @@ Containerize all services so the entire system can be started with one command.
   Use Spring profiles: `local` profile uses `localhost`, `docker` profile
   uses Docker service names.
 
-- [ ] **Test full stack with `docker-compose up`**
+- [x] **Test full stack with `docker-compose up`**
   All 7 services + Kafka should start, register with Eureka, and the
   place-order flow should work end-to-end.
 
