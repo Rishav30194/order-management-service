@@ -6,12 +6,10 @@ import com.rishav.payment.dto.PaymentRequest;
 import com.rishav.payment.dto.PaymentResponseDto;
 import com.rishav.payment.entity.PaymentResponse;
 import com.rishav.payment.kafka.PaymentEventPublisher;
-import com.rishav.payment.provider.MockPaymentProvider;
 import com.rishav.payment.provider.PaymentProvider;
 import com.rishav.payment.repository.PaymentResponseRepository;
 import com.rishav.payment.service.PaymentService;
 import lombok.AllArgsConstructor;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.util.HashMap;
@@ -23,9 +21,8 @@ public class PaymentServiceImpl implements PaymentService {
 
     private final PaymentProvider paymentProvider;
     private final PaymentResponseRepository repository;
-    private PaymentEventPublisher eventPublisher;
-
-    ObjectMapper mapper = new ObjectMapper();
+    private final PaymentEventPublisher eventPublisher;
+    private final ObjectMapper objectMapper;
 
     @Override
     public PaymentResponseDto handlePayment(PaymentRequest request) throws JsonProcessingException {
@@ -43,11 +40,10 @@ public class PaymentServiceImpl implements PaymentService {
         Map<String, String> event = new HashMap<>();
         event.put("orderId", response.getOrderId());
         event.put("status", String.valueOf(response.getStatus()));
-        String eventJson = mapper.writeValueAsString(event);
+        String eventJson = objectMapper.writeValueAsString(event);
 
         eventPublisher.publishPaymentEvent(eventJson);
 
         return response;
     }
-
 }

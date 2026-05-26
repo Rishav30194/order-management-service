@@ -1,6 +1,7 @@
 package com.rishav.order.model;
 
 
+import com.rishav.order.constant.OrderStatus;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -24,7 +25,10 @@ public class Order {
     private Long userId;
     private Long productId;
     private Integer quantity;
-    private Double totalPrice;
-    private String status;
+    private Long totalPrice;
+
+    @Enumerated(EnumType.STRING)
+    private OrderStatus status;
+
     private LocalDateTime createdAt;
 }
