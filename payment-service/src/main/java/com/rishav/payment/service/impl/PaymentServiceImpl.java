@@ -11,6 +11,7 @@ import com.rishav.payment.repository.PaymentResponseRepository;
 import com.rishav.payment.service.PaymentService;
 import lombok.AllArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -24,6 +25,7 @@ public class PaymentServiceImpl implements PaymentService {
     private final PaymentEventPublisher eventPublisher;
     private final ObjectMapper objectMapper;
 
+    @Transactional
     @Override
     public PaymentResponseDto handlePayment(PaymentRequest request) throws JsonProcessingException {
         PaymentResponseDto response = paymentProvider.processPayment(request);

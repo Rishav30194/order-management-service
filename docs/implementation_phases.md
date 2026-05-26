@@ -299,26 +299,26 @@ Containerize all services so the entire system can be started with one command.
 
 ## Phase 7 — Polish & Quality
 
-- [ ] **Add `@Transactional` to service methods**
+- [x] **Add `@Transactional` to service methods**
   `OrderServiceImpl.placeOrder()`, `PaymentServiceImpl.handlePayment()`,
   and all write operations should be transactional.
 
-- [ ] **Add input validation**
+- [x] **Add input validation**
   Add `@Valid` + `@NotNull`, `@NotBlank`, `@Positive` annotations to
   request DTOs. Add `MethodArgumentNotValidException` handler to
   `GlobalExceptionHandler` in each service.
 
-- [ ] **Consistent exception handling across all services**
+- [x] **Consistent exception handling across all services**
   Only user-service has a `GlobalExceptionHandler`. Add one to
   order-service, product-service, and payment-service with at minimum:
   - `RuntimeException` → 500 with message
   - `EntityNotFoundException` → 404
 
-- [ ] **Resilience4j: wire up circuit breaker properly in order-service**
+- [x] **Resilience4j: wire up circuit breaker properly in order-service**
   The dependency is declared but the circuit breaker is not configured.
   Add `application.properties` entries for the payment-service circuit
   breaker (failure threshold, wait duration, fallback method).
 
-- [ ] **Add integration tests**
+- [x] **Add integration tests**
   At minimum one test per service that starts the Spring context and
   exercises the main happy path using `MockMvc` and `@SpringBootTest`.

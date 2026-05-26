@@ -2,6 +2,9 @@ package com.rishav.product.model;
 
 
 import jakarta.persistence.*;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Positive;
+import jakarta.validation.constraints.PositiveOrZero;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -19,12 +22,19 @@ public class Product {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    @NotBlank
     @Column(unique = true)
     private String name;
 
     private String description;
+
+    @Positive
     private Long price;
+
+    @PositiveOrZero
     private int stock;
+
+    @NotBlank
     private String category;
 
 }

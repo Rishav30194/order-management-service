@@ -2,6 +2,7 @@ package com.rishav.product.controller;
 
 import com.rishav.product.model.Product;
 import com.rishav.product.service.ProductService;
+import jakarta.validation.Valid;
 import lombok.AllArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -16,7 +17,7 @@ public class ProductController {
     private final ProductService productService;
 
     @PostMapping
-    public ResponseEntity<Product> createProduct(@RequestBody Product product) {
+    public ResponseEntity<Product> createProduct(@Valid @RequestBody Product product) {
         return ResponseEntity.ok(productService.createProduct(product));
     }
 
@@ -31,7 +32,7 @@ public class ProductController {
     }
 
     @PutMapping("/{id}")
-    public ResponseEntity<Product> updateProduct(@PathVariable Long id, @RequestBody Product product) {
+    public ResponseEntity<Product> updateProduct(@PathVariable Long id, @Valid @RequestBody Product product) {
         return ResponseEntity.ok(productService.updateProduct(id, product));
     }
 

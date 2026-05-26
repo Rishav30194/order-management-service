@@ -9,6 +9,7 @@ import com.rishav.user.repository.UserRepository;
 import com.rishav.user.service.UserService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 
@@ -19,6 +20,7 @@ public class UserServiceImpl implements UserService {
     private final UserRepository userRepository;
     private final JwtUtil jwtUtil;
 
+    @Transactional
     @Override
     public User createUser(User user) {
         if (userRepository.existsByEmail(user.getEmail())) {
@@ -27,16 +29,19 @@ public class UserServiceImpl implements UserService {
         return userRepository.save(user);
     }
 
+    @Transactional(readOnly = true)
     @Override
     public User getUserById(Long id) {
         return userRepository.findById(id).orElseThrow(() -> new UserNotFoundException(id));
     }
 
+    @Transactional(readOnly = true)
     @Override
     public List<User> getAllUsers() {
         return userRepository.findAll();
     }
 
+    @Transactional
     @Override
     public User updateUser(Long id, User user) {
         User existing = getUserById(id);
@@ -46,11 +51,13 @@ public class UserServiceImpl implements UserService {
         return userRepository.save(existing);
     }
 
+    @Transactional
     @Override
     public void deleteUser(Long id) {
         userRepository.deleteById(id);
     }
 
+    @Transactional(readOnly = true)
     @Override
     public LoginResponse login(LoginRequest request) {
         User user = userRepository.findByEmail(request.getEmail())

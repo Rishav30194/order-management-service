@@ -13,6 +13,7 @@ import org.springframework.cloud.client.circuitbreaker.CircuitBreakerFactory;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.client.RestTemplate;
 
 import java.math.BigDecimal;
@@ -29,6 +30,7 @@ public class OrderServiceImpl implements OrderService {
     private final CircuitBreakerFactory<?, ?> circuitBreakerFactory;
     private final JwtUtil jwtUtil;
 
+    @Transactional
     @Override
     public Order placeOrder(Order order) {
         String userUrl = "http://USER-SERVICE/api/users/" + order.getUserId();
@@ -72,12 +74,14 @@ public class OrderServiceImpl implements OrderService {
         );
     }
 
+    @Transactional(readOnly = true)
     @Override
     public Order getOrderById(Long id) {
         return orderRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Order not found with ID: " + id));
     }
 
+    @Transactional(readOnly = true)
     @Override
     public List<Order> getAllOrders() {
         return orderRepository.findAll();

@@ -2,6 +2,7 @@ package com.rishav.order.controller;
 
 import com.rishav.order.model.Order;
 import com.rishav.order.service.OrderService;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -16,7 +17,7 @@ public class OrderController {
     private final OrderService orderService;
 
     @PostMapping
-    public ResponseEntity<Order> placeOrder(@RequestBody Order order) {
+    public ResponseEntity<Order> placeOrder(@Valid @RequestBody Order order) {
         return ResponseEntity.ok(orderService.placeOrder(order));
     }
 
