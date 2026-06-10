@@ -24,7 +24,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT, properties = {
         "spring.cloud.config.enabled=false",
         "eureka.client.enabled=false",
-        "jwt.secret=dGhpcyBpcyBhIHNlY3JldCBrZXkgZm9yIHRoZSBvcmRlciBtYW5hZ2VtZW50IHNlcnZpY2U=",
+        "jwt.secret=dGVzdC1vbmx5LWp3dC1zZWNyZXQtbmV2ZXItdXNlZC1vdXRzaWRlLWNp",
         "jwt.expiration-ms=86400000",
         "spring.kafka.bootstrap-servers=localhost:9092",
         "spring.kafka.consumer.group-id=order-group",
