@@ -72,6 +72,10 @@ POST /api/users/login  →  user-service issues JWT (HS256)
 
 `/api/payments/**` requires a valid JWT. All other endpoints are public.
 
+The signing key is configured via the `JWT_SECRET` environment variable on the
+config-server (base64-encoded, decoded length ≥ 32 bytes). A default is provided
+for local development.
+
 ---
 
 ## Services

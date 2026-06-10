@@ -1,7 +1,9 @@
 # Shared properties — applied to every service that pulls from config-server
 
 jwt:
-  secret: dGhpcyBpcyBhIHNlY3JldCBrZXkgZm9yIHRoZSBvcmRlciBtYW5hZ2VtZW50IHNlcnZpY2U=
+  # Base64-encoded HS256 key (decoded value must be >= 32 bytes).
+  # Defaults to a local-development key when JWT_SECRET is not set.
+  secret: ${JWT_SECRET:bG9jYWwtZGV2LW9ubHktand0LXNlY3JldC1jaGFuZ2UtZm9yLWRlcGxveQ==}
   expiration-ms: 86400000
 
 spring:
