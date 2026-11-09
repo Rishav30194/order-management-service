@@ -27,8 +27,8 @@ All phases are complete. Read `README.md` for current architecture, endpoints, a
 
 ## Git Workflow
 
-- Never commit directly to `main`.
-- Branch: `feature/`, `fix/`, `chore/` prefix.
+Directory-level workflow applies — see `../CLAUDE.md`. One addition:
+
 - One PR per logical change. Do not bundle unrelated changes.
 
 ---
@@ -55,9 +55,12 @@ rename variables for style, or add unrelated features.
 
 ## Coding Standards
 
-- Java 17. Use records for DTOs where appropriate.
+Directory-level Java defaults apply — see `../CLAUDE.md`, except where overridden here.
+
+- **Java 17**, not 21 — this project overrides the directory default.
 - No raw `String` status values — use enums or constants.
-- `@Transactional` on all service methods that write to the DB.
+- `@Transactional` on all service methods that write to the DB, except
+  `OrderServiceImpl.placeOrder`: each save there must commit before the payment call.
 - No `System.out.println` — use `slf4j` (`@Slf4j` + `log.info/warn/error`).
 - Validate request bodies with `@Valid` and annotated DTO fields.
 - Match the existing package structure in each service:
@@ -66,7 +69,8 @@ rename variables for style, or add unrelated features.
 ## Inter-service Communication
 
 - HTTP calls use `RestTemplate` with `@LoadBalanced` — always use Eureka service names
-  (`lb://USER-SERVICE`, `lb://PRODUCT-SERVICE`, etc.), never hardcode `localhost` URLs.
+  (`http://USER-SERVICE`, `http://PRODUCT-SERVICE`, and so on), never hardcode `localhost` URLs.
+  The `lb://` scheme applies only to gateway routes.
 - Service-to-service calls that require auth must include a JWT in the
   `Authorization: Bearer <token>` header.
 - Kafka topic name: `payment-events`. Do not create new topics without updating `README.md`.

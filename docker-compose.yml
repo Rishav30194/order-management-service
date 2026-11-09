@@ -88,6 +88,8 @@ services:
     environment:
       SPRING_CONFIG_IMPORT: optional:configserver:http://config-server:8086
       EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://discovery-server:8084/eureka
+      # No value: passes the host's variable when set. An empty value would override the default key.
+      JWT_SECRET:
 
   product-service:
     build:
@@ -123,6 +125,7 @@ services:
       SPRING_CONFIG_IMPORT: optional:configserver:http://config-server:8086
       EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://discovery-server:8084/eureka
       SPRING_KAFKA_BOOTSTRAPSERVERS: kafka:9092
+      JWT_SECRET:
 
   payment-service:
     build:
@@ -142,3 +145,4 @@ services:
       SPRING_CONFIG_IMPORT: optional:configserver:http://config-server:8086
       EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://discovery-server:8084/eureka
       SPRING_KAFKA_BOOTSTRAPSERVERS: kafka:9092
+      JWT_SECRET:

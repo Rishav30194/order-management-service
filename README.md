@@ -8,30 +8,55 @@ No frontend. All interaction is via REST (Postman / curl / API gateway at `:8085
 
 ## Architecture
 
+### Topology
+
 ```
-  Client (curl / Postman)
-          │
-          ▼
-  ┌───────────────┐
-  │  API Gateway  │  :8085  — routes by path prefix
-  └───────┬───────┘
-          │  lb:// via Eureka
-  ┌───────┴──────────────────────────────────┐
-  │                                          │
-  ▼              ▼              ▼            ▼
-user-service  product-service  order-service  payment-service
-  :8081          :8082           :8083          :8088
-  H2:userdb      H2:productdb    H2:orderdb     H2:paymentdb
-                                  │    ▲              │
-                         REST ────┘    └── Kafka ─────┘
-                      (user+product)    payment-events
+                         Client  (curl / Postman)
+                                    │
+                                    │  HTTP  :8085
+                                    ▼
+                         ┌────────────────────────┐
+                         │      API Gateway       │  :8085
+                         │  routes by path prefix │
+                         └───────────┬────────────┘
+                                     │  lb://<SERVICE>  (resolved via Eureka)
+        ┌────────────────┬───────────┴──────────┬─────────────────┐
+        ▼                ▼                      ▼                 ▼
+┌──────────────┐ ┌────────────────┐     ┌──────────────┐  ┌────────────────┐
+│ user-service │ │product-service │     │ order-service│  │ payment-service│
+│    :8081     │ │    :8082       │     │    :8083     │  │     :8088      │
+│  H2 userdb   │ │  H2 productdb  │     │  H2 orderdb  │  │  H2 paymentdb  │
+└──────────────┘ └────────────────┘     └──────────────┘  └────────────────┘
 
+  Platform services
+  ┌──────────────────────┐      ┌───────────────────────────────────────┐
+  │ Discovery (Eureka)   │      │ Config Server                         │
+  │ :8084                │      │ :8086 · native · classpath:/config/   │
+  │ service registry     │      │ shared props (Kafka, JWT secret, ...) │
+  └──────────────────────┘      └───────────────────────────────────────┘
 
-  ┌──────────────────┐      ┌─────────────────────────────┐
-  │  Discovery Server│      │       Config Server         │
-  │  (Eureka) :8084  │      │  :8086 — native config,     │
-  │                  │      │  files in classpath:/config/ │
-  └──────────────────┘      └─────────────────────────────┘
+  Every service registers with Eureka on startup and pulls config from the
+  config server. Clients use only the gateway port. Docker Compose also
+  publishes each service's port for local debugging.
+```
+
+### Runtime interaction — order orchestration
+
+```
+  order-service  (orchestrates an order)
+        │
+        ├─ REST  GET  /api/users/{id}      ─▶ user-service      validate user exists
+        ├─ REST  GET  /api/products/{id}   ─▶ product-service   fetch price
+        └─ REST  POST /api/payments (+JWT) ─▶ payment-service   charge
+                                                   │
+                                                   │ publish
+                                                   ▼
+                                       Kafka topic: payment-events
+                                       { orderId, status }
+                                                   │
+                                                   │ consume
+                                                   ▼
+                                       order-service   update order status
 ```
 
 ### Communication
@@ -51,30 +76,44 @@ user-service  product-service  order-service  payment-service
 |---|---|---|---|
 | `payment-service` | `order-service` | `payment-events` | `{"orderId":"...","status":"SUCCESS\|FAILED"}` |
 
-### Order Status Lifecycle
+### Order status lifecycle
 
 ```
-PLACED → PAYMENT_INITIATED → PAYMENT_SUCCESS
-                           → PAYMENT_FAILED
+                            ┌─▶ PAYMENT_SUCCESS
+PLACED ─▶ PAYMENT_INITIATED ─┤
+                            └─▶ PAYMENT_FAILED
 ```
+
+`order-service` commits `PLACED` then `PAYMENT_INITIATED` before it calls
+`payment-service`; the `payment-events` Kafka consumer sets the terminal status. If
+the payment call fails, the circuit breaker fallback sets `PAYMENT_FAILED`.
 
 ### Security
 
 ```
-POST /api/users/login  →  user-service issues JWT (HS256)
-                                    │
-                          stored in config-server
-                          shared secret across services
-                                    │
-              order-service generates service-level JWT
-                          to call payment-service
+POST /api/users/login
+        │
+        ▼
+  user-service issues JWT (HS256)         ─┐
+                                          │  shared signing secret
+  order-service mints a service-level JWT ─┘  (from config server)
+        │
+        ▼
+  POST /api/payments  +  Authorization: Bearer <jwt>
+        │
+        ▼
+  payment-service validates the JWT before processing
 ```
 
 `/api/payments/**` requires a valid JWT. All other endpoints are public.
 
-The signing key is configured via the `JWT_SECRET` environment variable on the
-config-server (base64-encoded, decoded length ≥ 32 bytes). A default is provided
-for local development.
+`user-service` stores passwords as BCrypt hashes and never returns them in responses.
+
+The config server serves `jwt.secret` as an unresolved `${JWT_SECRET:...}` placeholder,
+so `user-service`, `order-service`, and `payment-service` each read `JWT_SECRET` from
+their own environment (base64-encoded, decoded length ≥ 32 bytes). All three must use
+the same value. A default is provided for local development. Docker Compose passes the
+host's `JWT_SECRET` to those three services when it's set.
 
 ---
 
@@ -132,7 +171,7 @@ All requests go through the gateway at `http://localhost:8085`.
 |---|---|---|---|
 | `POST` | `/api/products` | public | Create product |
 | `GET` | `/api/products` | public | List all products |
-| `GET` | `/api/products/{id}` | public | Get product by ID |
+| `GET` | `/api/products/{id}` | public | Get product by ID (404 if not found) |
 | `PUT` | `/api/products/{id}` | public | Update product |
 | `DELETE` | `/api/products/{id}` | public | Delete product |
 
@@ -140,7 +179,7 @@ All requests go through the gateway at `http://localhost:8085`.
 
 | Method | Path | Auth | Description |
 |---|---|---|---|
-| `POST` | `/api/orders` | public | Place an order (triggers payment) |
+| `POST` | `/api/orders` | public | Place an order and trigger payment (404 if the user or product doesn't exist) |
 | `GET` | `/api/orders` | public | List all orders |
 | `GET` | `/api/orders/{id}` | public | Get order by ID |
 
@@ -164,6 +203,7 @@ POST /api/orders  { userId, productId, quantity }
     ├─ GET /api/products/{id}       → fetch price
     ├─ totalPrice = price × quantity
     ├─ save Order { status: PLACED }
+    ├─ save Order { status: PAYMENT_INITIATED }
     └─ POST /api/payments  (+ JWT)
          │
          ▼ payment-service
@@ -223,7 +263,7 @@ mvn test
 mvn test -pl user-service
 ```
 
-Tests use `@SpringBootTest` + `MockMvc`. Config server and Eureka are disabled in the test profile via `src/test/resources/application.properties` in each service.
+Service tests use `@SpringBootTest` + `MockMvc`, and `PaymentEventConsumerTest` uses Mockito. Config server and Eureka are disabled in the test profile via `src/test/resources/application.properties` in each service.
 
 ---
 
@@ -232,5 +272,7 @@ Tests use `@SpringBootTest` + `MockMvc`. Config server and Eureka are disabled i
 - **H2 in-memory per service** — no external DB needed for local dev; data resets on restart.
 - **Native config** — config-server serves YAML from `classpath:/config/` (no external Git repo).
 - **Mock payment provider** — 80% SUCCESS / 20% FAILED, random transaction ID.
-- **Circuit breaker** — Resilience4j wraps the order-service → payment-service call; on failure the order is saved as `PAYMENT_FAILED`.
-- **Known race condition** — if Kafka delivery is very fast, the consumer can update order status before `placeOrder()` sets `PAYMENT_INITIATED`, causing a stale-entity conflict that triggers the circuit breaker fallback. The final status in DB is still correct because the Kafka consumer's write wins.
+- **Circuit breaker** — Resilience4j wraps the order-service → payment-service call; on failure the order is saved as `PAYMENT_FAILED`. The call runs on a separate thread with Resilience4j's default 1-second time limit.
+- **No transaction around the payment call** — `placeOrder()` commits `PAYMENT_INITIATED` before calling `payment-service`, because the breaker's thread and the Kafka consumer can't see uncommitted rows and the event can arrive before the HTTP response.
+- **Consumer failures** — malformed events are logged and skipped. Database failures reach Spring Kafka's default error handler, which retries 9 times and then logs and skips the record.
+- **Known limitation** — if the payment call times out after the charge succeeds, the fallback marks the order `PAYMENT_FAILED` until the Kafka event corrects it. If that event was processed before the timeout, the order stays `PAYMENT_FAILED`.

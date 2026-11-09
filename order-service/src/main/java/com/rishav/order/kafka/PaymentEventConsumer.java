@@ -27,18 +27,21 @@ public class PaymentEventConsumer {
     public void consume(String event) {
         logger.info("Received payment event: {}", event);
 
+        String orderId;
+        String paymentStatus;
         try {
             JsonNode json = objectMapper.readTree(event);
-            String orderId = json.get("orderId").asText();
-            String paymentStatus = json.get("status").asText();
-
-            logger.info("Parsed event — orderId: {}, status: {}", orderId, paymentStatus);
-
-            updateOrderStatus(orderId, paymentStatus);
-
+            orderId = json.get("orderId").asText();
+            paymentStatus = json.get("status").asText();
         } catch (Exception e) {
             logger.error("Failed to parse payment event: {}", event, e);
+            return;
         }
+
+        logger.info("Parsed event — orderId: {}, status: {}", orderId, paymentStatus);
+
+        // Outside the try block so database failures reach the listener's error handler for retry.
+        updateOrderStatus(orderId, paymentStatus);
     }
 
     private void updateOrderStatus(String orderId, String paymentStatus) {

@@ -30,7 +30,9 @@ public class OrderServiceImpl implements OrderService {
     private final CircuitBreakerFactory<?, ?> circuitBreakerFactory;
     private final JwtUtil jwtUtil;
 
-    @Transactional
+    // Deliberately not @Transactional: each save must commit before the payment call, because the
+    // circuit breaker runs that call on another thread and the payment-events consumer can process
+    // the result before the call returns.
     @Override
     public Order placeOrder(Order order) {
         String userUrl = "http://USER-SERVICE/api/users/" + order.getUserId();
@@ -57,19 +59,22 @@ public class OrderServiceImpl implements OrderService {
                 .paymentMethod("MOCK")
                 .build();
 
+        // Written before the call so this status can never overwrite the consumer's terminal status.
+        savedOrder.setStatus(OrderStatus.PAYMENT_INITIATED);
+        Order initiatedOrder = orderRepository.save(savedOrder);
+
         return circuitBreakerFactory.create("payment-service").run(
                 () -> {
                     HttpHeaders headers = new HttpHeaders();
                     headers.set("Authorization", "Bearer " + jwtUtil.generateToken("order-service"));
                     HttpEntity<PaymentRequest> entity = new HttpEntity<>(paymentRequest, headers);
                     restTemplate.postForObject("http://PAYMENT-SERVICE/api/payments", entity, Object.class);
-                    savedOrder.setStatus(OrderStatus.PAYMENT_INITIATED);
-                    return orderRepository.save(savedOrder);
+                    return initiatedOrder;
                 },
                 throwable -> {
-                    log.error("Payment service unreachable for order {}: {}", savedOrder.getId(), throwable.getMessage());
-                    savedOrder.setStatus(OrderStatus.PAYMENT_FAILED);
-                    return orderRepository.save(savedOrder);
+                    log.error("Payment service unreachable for order {}: {}", initiatedOrder.getId(), throwable.getMessage());
+                    initiatedOrder.setStatus(OrderStatus.PAYMENT_FAILED);
+                    return orderRepository.save(initiatedOrder);
                 }
         );
     }

@@ -2,15 +2,19 @@ package com.rishav.user;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.rishav.user.dto.LoginRequest;
-import com.rishav.user.model.User;
+import com.rishav.user.repository.UserRepository;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.MediaType;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 
+import java.util.Map;
+
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
@@ -29,13 +33,18 @@ class UserControllerTest {
     @Autowired
     private ObjectMapper objectMapper;
 
+    @Autowired
+    private UserRepository userRepository;
+
+    @Autowired
+    private PasswordEncoder passwordEncoder;
+
     @Test
     void createUser_thenGetById_happyPath() throws Exception {
-        User user = User.builder()
-                .name("Alice")
-                .email("alice@example.com")
-                .password("secret")
-                .build();
+        Map<String, String> user = Map.of(
+                "name", "Alice",
+                "email", "alice@example.com",
+                "password", "secret");
 
         MvcResult created = mockMvc.perform(post("/api/users")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -43,6 +52,7 @@ class UserControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.name").value("Alice"))
                 .andExpect(jsonPath("$.email").value("alice@example.com"))
+                .andExpect(jsonPath("$.password").doesNotExist())
                 .andReturn();
 
         Long id = objectMapper.readTree(created.getResponse().getContentAsString())
@@ -51,16 +61,18 @@ class UserControllerTest {
         mockMvc.perform(get("/api/users/{id}", id))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.id").value(id))
-                .andExpect(jsonPath("$.name").value("Alice"));
+                .andExpect(jsonPath("$.name").value("Alice"))
+                .andExpect(jsonPath("$.password").doesNotExist());
+
+        assertTrue(passwordEncoder.matches("secret", userRepository.findById(id).orElseThrow().getPassword()));
     }
 
     @Test
     void login_happyPath() throws Exception {
-        User user = User.builder()
-                .name("Bob")
-                .email("bob@example.com")
-                .password("password123")
-                .build();
+        Map<String, String> user = Map.of(
+                "name", "Bob",
+                "email", "bob@example.com",
+                "password", "password123");
 
         mockMvc.perform(post("/api/users")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -76,11 +88,18 @@ class UserControllerTest {
                         .content(objectMapper.writeValueAsString(loginRequest)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.token").isNotEmpty());
+
+        loginRequest.setPassword("wrong-password");
+
+        mockMvc.perform(post("/api/users/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(loginRequest)))
+                .andExpect(jsonPath("$.token").doesNotExist());
     }
 
     @Test
     void createUser_missingRequiredField_returns400() throws Exception {
-        User user = User.builder().name("").email("bad@example.com").password("pass").build();
+        Map<String, String> user = Map.of("name", "", "email", "bad@example.com", "password", "pass");
 
         mockMvc.perform(post("/api/users")
                         .contentType(MediaType.APPLICATION_JSON)
