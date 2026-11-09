@@ -10,7 +10,7 @@ Read this file first when you resume the migration. Update it at the end of ever
 | 2 | Spring Boot 4.1.2 and Spring Cloud 2025.1.4 | `feature/java25-phase-2-boot4` | Verified, [PR #4](https://github.com/Rishav30194/order-management-service/pull/4) open |
 | 3 | Typed Kafka event and record DTOs | `feature/java25-phase-3-records` | Verified, [PR #5](https://github.com/Rishav30194/order-management-service/pull/5) open |
 | 4 | Virtual threads | `feature/java25-phase-4-virtual-threads` | Verified, [PR #6](https://github.com/Rishav30194/order-management-service/pull/6) open |
-| 5 | Ahead-of-time (AOT) cache in Docker images | `feature/java25-phase-5-aot-cache` | Verified, PR open |
+| 5 | Ahead-of-time (AOT) cache in Docker images | `feature/java25-phase-5-aot-cache` | Verified, [PR #](https://github.com/Rishav30194/order-management-service/pull/) open |
 
 All five phases are implemented and verified. The remaining step is to merge the PRs in phase order, which needs the owner's approval. After merging a PR, retarget the next PR to `main`.
 
