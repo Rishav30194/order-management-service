@@ -1,7 +1,6 @@
 package com.rishav.payment.service.impl;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.databind.ObjectMapper;
 import com.rishav.payment.dto.PaymentRequest;
 import com.rishav.payment.dto.PaymentResponseDto;
 import com.rishav.payment.entity.PaymentResponse;
@@ -27,7 +26,7 @@ public class PaymentServiceImpl implements PaymentService {
 
     @Transactional
     @Override
-    public PaymentResponseDto handlePayment(PaymentRequest request) throws JsonProcessingException {
+    public PaymentResponseDto handlePayment(PaymentRequest request) {
         PaymentResponseDto response = paymentProvider.processPayment(request);
 
         PaymentResponse saved = PaymentResponse.builder()
