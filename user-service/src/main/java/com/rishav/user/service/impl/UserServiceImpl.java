@@ -8,6 +8,7 @@ import com.rishav.user.model.User;
 import com.rishav.user.repository.UserRepository;
 import com.rishav.user.service.UserService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -19,6 +20,7 @@ public class UserServiceImpl implements UserService {
 
     private final UserRepository userRepository;
     private final JwtUtil jwtUtil;
+    private final PasswordEncoder passwordEncoder;
 
     @Transactional
     @Override
@@ -26,6 +28,7 @@ public class UserServiceImpl implements UserService {
         if (userRepository.existsByEmail(user.getEmail())) {
             throw new IllegalArgumentException("Email already exists");
         }
+        user.setPassword(passwordEncoder.encode(user.getPassword()));
         return userRepository.save(user);
     }
 
@@ -47,7 +50,7 @@ public class UserServiceImpl implements UserService {
         User existing = getUserById(id);
         existing.setName(user.getName());
         existing.setEmail(user.getEmail());
-        existing.setPassword(user.getPassword());
+        existing.setPassword(passwordEncoder.encode(user.getPassword()));
         return userRepository.save(existing);
     }
 
@@ -62,7 +65,7 @@ public class UserServiceImpl implements UserService {
     public LoginResponse login(LoginRequest request) {
         User user = userRepository.findByEmail(request.getEmail())
                 .orElseThrow(() -> new RuntimeException("Invalid credentials"));
-        if (!user.getPassword().equals(request.getPassword())) {
+        if (!passwordEncoder.matches(request.getPassword(), user.getPassword())) {
             throw new RuntimeException("Invalid credentials");
         }
         return new LoginResponse(jwtUtil.generateToken(user.getEmail()));
