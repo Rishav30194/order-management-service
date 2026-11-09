@@ -6,18 +6,17 @@ Read this file first when you resume the migration. Update it at the end of ever
 
 | Phase | Scope | Branch | State |
 |---|---|---|---|
-| 1 | Java 25 on Spring Boot 3.5.16 | `feature/java25-phase-1-jdk25` | Verified, [PR #3](https://github.com/Rishav30194/order-management-service/pull/3) open |
-| 2 | Spring Boot 4.1.2 and Spring Cloud 2025.1.4 | `feature/java25-phase-2-boot4` | Verified, [PR #4](https://github.com/Rishav30194/order-management-service/pull/4) open |
-| 3 | Typed Kafka event and record DTOs | `feature/java25-phase-3-records` | Verified, [PR #5](https://github.com/Rishav30194/order-management-service/pull/5) open |
-| 4 | Virtual threads | `feature/java25-phase-4-virtual-threads` | Verified, [PR #6](https://github.com/Rishav30194/order-management-service/pull/6) open |
-| 5 | Ahead-of-time (AOT) cache in Docker images | `feature/java25-phase-5-aot-cache` | Verified, [PR #7](https://github.com/Rishav30194/order-management-service/pull/7) open |
+| 1 | Java 25 on Spring Boot 3.5.16 | `feature/java25-phase-1-jdk25` | Merged, [PR #3](https://github.com/Rishav30194/order-management-service/pull/3) |
+| 2 | Spring Boot 4.1.2 and Spring Cloud 2025.1.4 | `feature/java25-phase-2-boot4` | Merged, [PR #4](https://github.com/Rishav30194/order-management-service/pull/4) |
+| 3 | Typed Kafka event and record DTOs | `feature/java25-phase-3-records` | Merged, [PR #5](https://github.com/Rishav30194/order-management-service/pull/5) |
+| 4 | Virtual threads | `feature/java25-phase-4-virtual-threads` | Merged, [PR #6](https://github.com/Rishav30194/order-management-service/pull/6) |
+| 5 | Ahead-of-time (AOT) cache in Docker images | `feature/java25-phase-5-aot-cache` | Merged, [PR #7](https://github.com/Rishav30194/order-management-service/pull/7) |
 
-All five phases are implemented and verified. The remaining step is to merge the PRs in phase order, which needs the owner's approval. After merging a PR, retarget the next PR to `main`.
+All five phases are merged to `main`, and the migration is complete.
 
-## Working rules
+## Working rules used
 
 - Each phase has one branch and one pull request (PR). Each branch starts from the previous phase, and its PR targets that branch.
-- The owner approved opening PRs. Merging needs a separate approval.
 - Commit messages don't include a Claude co-author line.
 - `INTERVIEW_PREP.md` stays untracked. Stage files by explicit path.
 - A phase is complete only after both checks in [Verification](#verification) pass and the docs match the code.
