@@ -1,5 +1,6 @@
 package com.rishav.product.service.impl;
 
+import com.rishav.product.exception.ProductNotFoundException;
 import com.rishav.product.model.Product;
 import com.rishav.product.repository.ProductRepository;
 import com.rishav.product.service.ProductService;
@@ -25,7 +26,7 @@ public class ProductServiceImpl implements ProductService {
     @Override
     public Product getProductById(Long id) {
         return productRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Product not found with ID: " + id));
+                .orElseThrow(() -> new ProductNotFoundException(id));
     }
 
     @Transactional(readOnly = true)

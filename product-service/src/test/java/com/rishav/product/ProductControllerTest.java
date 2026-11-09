@@ -61,6 +61,12 @@ class ProductControllerTest {
     }
 
     @Test
+    void getProductById_unknownId_returns404() throws Exception {
+        mockMvc.perform(get("/api/products/{id}", 999999L))
+                .andExpect(status().isNotFound());
+    }
+
+    @Test
     void createProduct_invalidPrice_returns400() throws Exception {
         Product product = Product.builder()
                 .name("Bad Product")
