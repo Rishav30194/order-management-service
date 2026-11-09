@@ -1,9 +1,9 @@
-FROM maven:3.9-eclipse-temurin-17 AS build
+FROM maven:3.10-eclipse-temurin-25-noble AS build
 WORKDIR /app
 COPY . .
-RUN mvn clean package -pl order-service -am -DskipTests
+RUN --mount=type=cache,id=maven-repo,target=/root/.m2,sharing=locked mvn -B clean package -pl order-service -am -DskipTests
 
-FROM eclipse-temurin:17-jre
+FROM eclipse-temurin:25-jre
 RUN apt-get update && apt-get install -y --no-install-recommends curl && rm -rf /var/lib/apt/lists/*
 WORKDIR /app
 COPY --from=build /app/order-service/target/*.jar app.jar

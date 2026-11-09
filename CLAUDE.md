@@ -1,6 +1,7 @@
 # Claude Agent Instructions — Order Management Service
 
 Read this file first, then `README.md` for full architecture and API reference.
+For the Java 25 migration, read `JAVA25_MIGRATION.md` for status and verification steps.
 
 ---
 
@@ -57,7 +58,7 @@ rename variables for style, or add unrelated features.
 
 Directory-level Java defaults apply — see `../CLAUDE.md`, except where overridden here.
 
-- **Java 17**, not 21 — this project overrides the directory default.
+- **Java 25.**
 - No raw `String` status values — use enums or constants.
 - `@Transactional` on all service methods that write to the DB, except
   `OrderServiceImpl.placeOrder`: each save there must commit before the payment call.

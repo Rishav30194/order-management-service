@@ -135,8 +135,8 @@ host's `JWT_SECRET` to those three services when it's set.
 
 | Layer | Technology |
 |---|---|
-| Language | Java 17 |
-| Framework | Spring Boot 3.5.4, Spring Cloud 2025.0.0 |
+| Language | Java 25 |
+| Framework | Spring Boot 3.5.16, Spring Cloud 2025.0.3 |
 | Service discovery | Netflix Eureka |
 | API gateway | Spring Cloud Gateway |
 | Config management | Spring Cloud Config (native / classpath) |
@@ -228,11 +228,13 @@ docker compose up -d
 
 Waits for healthchecks in this order: Kafka → discovery-server → config-server → all business services.
 
+The Dockerfiles use a BuildKit cache mount, `maven-repo`, so Maven downloads dependencies once across all images.
+
 Check Eureka dashboard: `http://localhost:8084`
 
 ### Local Development
 
-Prerequisites: Java 17, Maven 3.9+, Docker (for Kafka).
+Prerequisites: Java 25, Maven 3.9+, Docker (for Kafka).
 
 ```bash
 # Start Kafka only
