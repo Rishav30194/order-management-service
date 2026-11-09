@@ -109,7 +109,14 @@ def run_checks():
         value = sh(f"docker compose exec -T {service} printenv JWT_SECRET").stdout.strip()
         check(f"{service} receives JWT_SECRET", value == JWT_KEY)
 
-    exception_lines = [line for line in sh("docker compose logs payment-service").stdout.splitlines()
+    payment_logs = sh("docker compose logs payment-service").stdout
+    # The default log pattern keeps only the last 15 characters of a thread name.
+    mock_payment_lines = [line for line in payment_logs.splitlines() if "Mocking payment" in line]
+    check("payment-service handles requests on virtual threads",
+          bool(mock_payment_lines) and all("-handler-" in line for line in mock_payment_lines),
+          mock_payment_lines[0][40:110] if mock_payment_lines else "no payment log lines")
+
+    exception_lines = [line for line in payment_logs.splitlines()
                        if "Exception" in line]
     print(f"INFO  payment-service log lines containing Exception: {len(exception_lines)}")
     for line in exception_lines:

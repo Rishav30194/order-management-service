@@ -8,9 +8,9 @@ Read this file first when you resume the migration. Update it at the end of ever
 |---|---|---|---|
 | 1 | Java 25 on Spring Boot 3.5.16 | `feature/java25-phase-1-jdk25` | Verified, [PR #3](https://github.com/Rishav30194/order-management-service/pull/3) open |
 | 2 | Spring Boot 4.1.2 and Spring Cloud 2025.1.4 | `feature/java25-phase-2-boot4` | Verified, [PR #4](https://github.com/Rishav30194/order-management-service/pull/4) open |
-| 3 | Typed Kafka event and record DTOs | `feature/java25-phase-3-records` | Verified, PR open |
-| 4 | Virtual threads | `feature/java25-phase-4-virtual-threads` | In progress |
-| 5 | Ahead-of-time (AOT) cache in Docker images | `feature/java25-phase-5-aot-cache` | Not started |
+| 3 | Typed Kafka event and record DTOs | `feature/java25-phase-3-records` | Verified, [PR #5](https://github.com/Rishav30194/order-management-service/pull/5) open |
+| 4 | Virtual threads | `feature/java25-phase-4-virtual-threads` | Verified, PR open |
+| 5 | Ahead-of-time (AOT) cache in Docker images | `feature/java25-phase-5-aot-cache` | In progress |
 
 ## Working rules
 
@@ -109,3 +109,4 @@ Add one entry per completed phase: date, PR, test count, and verification result
 - **Phase 1 (2026-11-09):** 25 tests pass on JDK 25, and `scripts/verify_e2e.py` passes all checks. The first run took 617 seconds while it filled the Maven cache.
 - **Phase 2 (2026-11-09):** 25 tests pass on Boot 4.1.2, and `scripts/verify_e2e.py` passes all checks in 635 seconds, with Boot 4 dependencies downloading into the cache for the first time.
 - **Phase 3 (2026-11-09):** 26 tests pass, and `scripts/verify_e2e.py` passes all checks in 140 seconds with the Maven cache filled.
+- **Phase 4 (2026-11-09):** 27 tests pass, and `scripts/verify_e2e.py` passes all checks in 142 seconds. Payment requests run on `tomcat-handler` virtual threads, which the default log pattern shortens to their last 15 characters.
