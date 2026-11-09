@@ -276,5 +276,5 @@ Service tests use `@SpringBootTest` + `MockMvc`, and `PaymentEventConsumerTest` 
 - **Mock payment provider** — 80% SUCCESS / 20% FAILED, random transaction ID.
 - **Circuit breaker** — Resilience4j wraps the order-service → payment-service call; on failure the order is saved as `PAYMENT_FAILED`. The call runs on a separate thread with Resilience4j's default 1-second time limit.
 - **No transaction around the payment call** — `placeOrder()` commits `PAYMENT_INITIATED` before calling `payment-service`, because the breaker's thread and the Kafka consumer can't see uncommitted rows and the event can arrive before the HTTP response.
-- **Consumer failures** — malformed events are logged and skipped. Database failures reach Spring Kafka's default error handler, which retries 9 times and then logs and skips the record.
+- **Consumer failures** — malformed events and events with an unknown status are logged and skipped, which leaves the order in `PAYMENT_INITIATED`. Database failures reach Spring Kafka's default error handler, which retries 9 times and then logs and skips the record.
 - **Known limitation** — if the payment call times out after the charge succeeds, the fallback marks the order `PAYMENT_FAILED` until the Kafka event corrects it. If that event was processed before the timeout, the order stays `PAYMENT_FAILED`.

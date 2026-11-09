@@ -1,6 +1,7 @@
 package com.rishav.payment.service.impl;
 
 import tools.jackson.databind.ObjectMapper;
+import com.rishav.payment.dto.PaymentEvent;
 import com.rishav.payment.dto.PaymentRequest;
 import com.rishav.payment.dto.PaymentResponseDto;
 import com.rishav.payment.entity.PaymentResponse;
@@ -11,9 +12,6 @@ import com.rishav.payment.service.PaymentService;
 import lombok.AllArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-
-import java.util.HashMap;
-import java.util.Map;
 
 @Service
 @AllArgsConstructor
@@ -30,18 +28,15 @@ public class PaymentServiceImpl implements PaymentService {
         PaymentResponseDto response = paymentProvider.processPayment(request);
 
         PaymentResponse saved = PaymentResponse.builder()
-                .transactionId(response.getTransactionId())
-                .orderId(response.getOrderId())
-                .status(response.getStatus())
-                .message(response.getMessage())
+                .transactionId(response.transactionId())
+                .orderId(response.orderId())
+                .status(response.status())
+                .message(response.message())
                 .build();
 
         repository.save(saved);
 
-        Map<String, String> event = new HashMap<>();
-        event.put("orderId", response.getOrderId());
-        event.put("status", String.valueOf(response.getStatus()));
-        String eventJson = objectMapper.writeValueAsString(event);
+        String eventJson = objectMapper.writeValueAsString(new PaymentEvent(response.orderId(), response.status()));
 
         eventPublisher.publishPaymentEvent(eventJson);
 

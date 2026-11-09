@@ -15,13 +15,13 @@ public class MockPaymentProvider implements PaymentProvider {
 
     @Override
     public PaymentResponseDto processPayment(PaymentRequest request) {
-        log.info("Mocking payment for orderId: {}", request.getOrderId());
+        log.info("Mocking payment for orderId: {}", request.orderId());
 
         boolean isSuccess = Math.random() > 0.2;
 
         return PaymentResponseDto.builder()
                 .transactionId(UUID.randomUUID().toString())
-                .orderId(request.getOrderId())
+                .orderId(request.orderId())
                 .status(isSuccess ? PaymentStatus.SUCCESS : PaymentStatus.FAILED)
                 .message(isSuccess ? "Payment successful" : "Payment failed due to insufficient funds")
                 .build();

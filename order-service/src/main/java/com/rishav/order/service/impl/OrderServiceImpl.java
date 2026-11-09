@@ -47,7 +47,7 @@ public class OrderServiceImpl implements OrderService {
             throw new RuntimeException("Product not found with ID: " + order.getProductId());
         }
 
-        order.setTotalPrice(product.getPrice() * order.getQuantity());
+        order.setTotalPrice(product.price() * order.getQuantity());
         order.setStatus(OrderStatus.PLACED);
         order.setCreatedAt(LocalDateTime.now());
         Order savedOrder = orderRepository.save(order);

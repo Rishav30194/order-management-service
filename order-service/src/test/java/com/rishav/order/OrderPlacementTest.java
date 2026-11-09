@@ -69,8 +69,7 @@ class OrderPlacementTest {
 
     @BeforeEach
     void stubLookups() {
-        ProductDTO product = new ProductDTO();
-        product.setPrice(100L);
+        ProductDTO product = new ProductDTO(1L, "Widget", "A widget", 100L, 5, "Tools");
         when(restTemplate.getForObject(contains("/api/users/"), eq(Object.class))).thenReturn(Map.of("id", 1));
         when(restTemplate.getForObject(contains("/api/products/"), eq(ProductDTO.class))).thenReturn(product);
     }
@@ -88,7 +87,7 @@ class OrderPlacementTest {
     void paymentEventBeforeHttpResponse_terminalStatusIsKept() {
         when(restTemplate.postForObject(contains("/api/payments"), any(), eq(Object.class))).thenAnswer(call -> {
             PaymentRequest request = (PaymentRequest) ((HttpEntity<?>) call.getArgument(1)).getBody();
-            String event = "{\"orderId\":\"" + request.getOrderId() + "\",\"status\":\"SUCCESS\"}";
+            String event = "{\"orderId\":\"" + request.orderId() + "\",\"status\":\"SUCCESS\"}";
             Thread consumerThread = new Thread(() -> paymentEventConsumer.consume(event));
             consumerThread.start();
             consumerThread.join();
