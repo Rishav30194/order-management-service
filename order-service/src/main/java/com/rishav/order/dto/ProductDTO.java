@@ -1,13 +1,4 @@
 package com.rishav.order.dto;
 
-import lombok.Data;
-
-@Data
-public class ProductDTO {
-    private Long id;
-    private String name;
-    private String description;
-    private Long price;
-    private Integer stock;
-    private String category;
+public record ProductDTO(Long id, String name, String description, Long price, Integer stock, String category) {
 }

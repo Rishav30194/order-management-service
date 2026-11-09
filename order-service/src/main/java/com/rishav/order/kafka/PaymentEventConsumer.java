@@ -1,6 +1,6 @@
 package com.rishav.order.kafka;
 
-import tools.jackson.databind.JsonNode;
+import com.rishav.order.dto.PaymentEvent;
 import tools.jackson.databind.ObjectMapper;
 import com.rishav.order.constant.OrderStatus;
 import com.rishav.order.model.Order;
@@ -27,32 +27,32 @@ public class PaymentEventConsumer {
     public void consume(String event) {
         logger.info("Received payment event: {}", event);
 
-        String orderId;
-        String paymentStatus;
+        PaymentEvent paymentEvent;
         try {
-            JsonNode json = objectMapper.readTree(event);
-            orderId = json.get("orderId").asText();
-            paymentStatus = json.get("status").asText();
+            paymentEvent = objectMapper.readValue(event, PaymentEvent.class);
         } catch (Exception e) {
             logger.error("Failed to parse payment event: {}", event, e);
             return;
         }
 
-        logger.info("Parsed event — orderId: {}, status: {}", orderId, paymentStatus);
+        logger.info("Parsed event: {}", paymentEvent);
 
         // Outside the try block so database failures reach the listener's error handler for retry.
-        updateOrderStatus(orderId, paymentStatus);
+        updateOrderStatus(paymentEvent);
     }
 
-    private void updateOrderStatus(String orderId, String paymentStatus) {
-        Order order = orderRepository.findById(Long.parseLong(orderId)).orElse(null);
+    private void updateOrderStatus(PaymentEvent event) {
+        Order order = orderRepository.findById(event.orderId()).orElse(null);
         if (order == null) {
-            logger.warn("Received payment event for unknown order id: {}", orderId);
+            logger.warn("Received payment event for unknown order id: {}", event.orderId());
             return;
         }
-        OrderStatus newStatus = "SUCCESS".equals(paymentStatus) ? OrderStatus.PAYMENT_SUCCESS : OrderStatus.PAYMENT_FAILED;
+        OrderStatus newStatus = switch (event.status()) {
+            case SUCCESS -> OrderStatus.PAYMENT_SUCCESS;
+            case FAILED -> OrderStatus.PAYMENT_FAILED;
+        };
         order.setStatus(newStatus);
         orderRepository.save(order);
-        logger.info("Order [{}] status updated to: {}", orderId, newStatus);
+        logger.info("Order [{}] status updated to: {}", event.orderId(), newStatus);
     }
 }

@@ -79,9 +79,7 @@ class UserControllerTest {
                         .content(objectMapper.writeValueAsString(user)))
                 .andExpect(status().isOk());
 
-        LoginRequest loginRequest = new LoginRequest();
-        loginRequest.setEmail("bob@example.com");
-        loginRequest.setPassword("password123");
+        LoginRequest loginRequest = new LoginRequest("bob@example.com", "password123");
 
         mockMvc.perform(post("/api/users/login")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -89,7 +87,7 @@ class UserControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.token").isNotEmpty());
 
-        loginRequest.setPassword("wrong-password");
+        loginRequest = new LoginRequest("bob@example.com", "wrong-password");
 
         mockMvc.perform(post("/api/users/login")
                         .contentType(MediaType.APPLICATION_JSON)

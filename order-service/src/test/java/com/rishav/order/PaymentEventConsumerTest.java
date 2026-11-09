@@ -26,6 +26,13 @@ class PaymentEventConsumerTest {
     }
 
     @Test
+    void unknownStatus_isSkipped() {
+        assertDoesNotThrow(() -> consumer.consume("{\"orderId\":\"1\",\"status\":\"REFUNDED\"}"));
+
+        verifyNoInteractions(orderRepository);
+    }
+
+    @Test
     void malformedEvent_isSkipped() {
         assertDoesNotThrow(() -> consumer.consume("not json"));
 
