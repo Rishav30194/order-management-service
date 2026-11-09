@@ -109,6 +109,14 @@ def run_checks():
         value = sh(f"docker compose exec -T {service} printenv JWT_SECRET").stdout.strip()
         check(f"{service} receives JWT_SECRET", value == JWT_KEY)
 
+    for service in ["api-gateway", "config-server", "discovery-server", "order-service", "payment-service",
+                    "product-service", "user-service"]:
+        command_line = sh(f"docker compose exec -T {service} cat /proc/1/cmdline").stdout
+        check(f"{service} starts with the AOT cache", "-XX:AOTCache=app.aot" in command_line)
+    for line in sh("docker compose logs").stdout.splitlines():
+        if "Started " in line and "Application in" in line:
+            print(f"INFO  startup {line.split('Started ')[1][:60]}")
+
     payment_logs = sh("docker compose logs payment-service").stdout
     # The default log pattern keeps only the last 15 characters of a thread name.
     mock_payment_lines = [line for line in payment_logs.splitlines() if "Mocking payment" in line]
