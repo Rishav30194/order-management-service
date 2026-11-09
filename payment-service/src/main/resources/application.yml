@@ -6,6 +6,9 @@ spring:
     name: payment-service
   config:
     import: optional:configserver:http://localhost:8086
+  threads:
+    virtual:
+      enabled: true
   datasource:
     url: jdbc:h2:mem:paymentdb
     driver-class-name: org.h2.Driver

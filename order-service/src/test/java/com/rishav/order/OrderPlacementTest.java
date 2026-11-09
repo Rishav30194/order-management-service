@@ -25,8 +25,10 @@ import org.springframework.web.client.RestTemplate;
 
 import java.nio.charset.StandardCharsets;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.contains;
 import static org.mockito.ArgumentMatchers.eq;
@@ -81,6 +83,19 @@ class OrderPlacementTest {
         Order placed = orderService.placeOrder(newOrder());
 
         assertEquals(OrderStatus.PAYMENT_INITIATED, storedStatus(placed));
+    }
+
+    @Test
+    void paymentCall_runsOnVirtualThread() {
+        AtomicBoolean virtual = new AtomicBoolean();
+        when(restTemplate.postForObject(contains("/api/payments"), any(), eq(Object.class))).thenAnswer(call -> {
+            virtual.set(Thread.currentThread().isVirtual());
+            return Map.of();
+        });
+
+        orderService.placeOrder(newOrder());
+
+        assertTrue(virtual.get());
     }
 
     @Test
