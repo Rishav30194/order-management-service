@@ -8,20 +8,22 @@ spring:
     import: optional:configserver:http://localhost:8086
   cloud:
     gateway:
-      routes:
-        - id: user-service
-          uri: lb://USER-SERVICE
-          predicates:
-            - Path=/api/users/**
-        - id: product-service
-          uri: lb://PRODUCT-SERVICE
-          predicates:
-            - Path=/api/products/**
-        - id: order-service
-          uri: lb://ORDER-SERVICE
-          predicates:
-            - Path=/api/orders/**
-        - id: payment-service
-          uri: lb://PAYMENT-SERVICE
-          predicates:
-            - Path=/api/payments/**
+      server:
+        webflux:
+          routes:
+            - id: user-service
+              uri: lb://USER-SERVICE
+              predicates:
+                - Path=/api/users/**
+            - id: product-service
+              uri: lb://PRODUCT-SERVICE
+              predicates:
+                - Path=/api/products/**
+            - id: order-service
+              uri: lb://ORDER-SERVICE
+              predicates:
+                - Path=/api/orders/**
+            - id: payment-service
+              uri: lb://PAYMENT-SERVICE
+              predicates:
+                - Path=/api/payments/**

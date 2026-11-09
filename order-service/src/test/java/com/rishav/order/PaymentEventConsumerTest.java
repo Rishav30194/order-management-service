@@ -1,6 +1,6 @@
 package com.rishav.order;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.databind.ObjectMapper;
 import com.rishav.order.kafka.PaymentEventConsumer;
 import com.rishav.order.repository.OrderRepository;
 import org.junit.jupiter.api.Test;

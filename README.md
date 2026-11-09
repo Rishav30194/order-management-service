@@ -136,7 +136,7 @@ host's `JWT_SECRET` to those three services when it's set.
 | Layer | Technology |
 |---|---|
 | Language | Java 25 |
-| Framework | Spring Boot 3.5.16, Spring Cloud 2025.0.3 |
+| Framework | Spring Boot 4.1.2, Spring Cloud 2025.1.4 |
 | Service discovery | Netflix Eureka |
 | API gateway | Spring Cloud Gateway |
 | Config management | Spring Cloud Config (native / classpath) |

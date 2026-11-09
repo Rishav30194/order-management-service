@@ -1,6 +1,5 @@
 package com.rishav.payment.controller;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
 import com.rishav.payment.dto.PaymentRequest;
 import com.rishav.payment.dto.PaymentResponseDto;
 import com.rishav.payment.entity.PaymentResponse;
@@ -21,7 +20,7 @@ public class PaymentController {
     private final PaymentService paymentService;
 
     @PostMapping
-    public ResponseEntity<PaymentResponseDto> makePayment(@Valid @RequestBody PaymentRequest request) throws JsonProcessingException {
+    public ResponseEntity<PaymentResponseDto> makePayment(@Valid @RequestBody PaymentRequest request) {
         PaymentResponseDto response = paymentService.handlePayment(request);
         return ResponseEntity.ok(response);
     }
