@@ -105,7 +105,7 @@ POST /api/users/login
   payment-service validates the JWT before processing
 ```
 
-`/api/payments/**` requires a valid JWT. All other endpoints are public. The `id` field in request bodies is ignored.
+`/api/payments/**` requires a valid JWT whose subject is `order-service`, so end-user tokens are rejected. All other endpoints are public. The `id` field in request bodies is ignored.
 
 `user-service` stores passwords as BCrypt hashes and never returns them in responses.
 
@@ -187,7 +187,7 @@ All requests go through the gateway at `http://localhost:8085`.
 
 | Method | Path | Auth | Description |
 |---|---|---|---|
-| `POST` | `/api/payments` | JWT required | Process a payment (called by order-service) |
+| `POST` | `/api/payments` | `order-service` JWT required | Process a payment (rejects end-user tokens with 403) |
 
 ---
 

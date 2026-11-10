@@ -78,6 +78,29 @@ class PaymentControllerTest {
     }
 
     @Test
+    void makePayment_withEndUserToken_returns403() throws Exception {
+        SecretKey key = Keys.hmacShaKeyFor(Decoders.BASE64.decode(JWT_SECRET));
+        String userToken = Jwts.builder()
+                .subject("alice@example.com")
+                .issuedAt(new Date())
+                .expiration(new Date(System.currentTimeMillis() + 86400000))
+                .signWith(key)
+                .compact();
+        PaymentRequest request = PaymentRequest.builder()
+                .orderId("103")
+                .customerId("user-3")
+                .paymentMethod("MOCK")
+                .amount(BigDecimal.valueOf(100))
+                .build();
+
+        mockMvc.perform(post("/api/payments")
+                        .header("Authorization", "Bearer " + userToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
     void makePayment_withoutToken_returns403() throws Exception {
         PaymentRequest request = PaymentRequest.builder()
                 .orderId("102")

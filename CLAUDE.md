@@ -79,7 +79,7 @@ Directory-level Java defaults apply — see `../CLAUDE.md`, except where overrid
 ## Security
 
 - JWT secret comes from config-server (`classpath:/config/application.yml`) — never hardcode it.
-- `payment-service` requires a valid JWT on `/api/payments/**`.
+- `payment-service` requires a valid `order-service` JWT on `/api/payments/**`.
 - Do not bypass the JWT filter or add `permitAll()` to secured endpoints without explicit instruction.
 
 ---
