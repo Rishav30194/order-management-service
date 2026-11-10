@@ -92,7 +92,54 @@ class UserControllerTest {
         mockMvc.perform(post("/api/users/login")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(loginRequest)))
+                .andExpect(status().isUnauthorized())
                 .andExpect(jsonPath("$.token").doesNotExist());
+    }
+
+    @Test
+    void login_unknownEmail_returns401() throws Exception {
+        LoginRequest loginRequest = new LoginRequest("nobody@example.com", "password123");
+
+        mockMvc.perform(post("/api/users/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(loginRequest)))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void updateUser_duplicateEmail_returns409() throws Exception {
+        createUser("Carol", "carol@example.com");
+        long daveId = createUser("Dave", "dave@example.com");
+        Map<String, String> update = Map.of("name", "Dave", "email", "carol@example.com", "password", "secret");
+
+        mockMvc.perform(put("/api/users/{id}", daveId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(update)))
+                .andExpect(status().isConflict());
+    }
+
+    @Test
+    void createUser_ignoresClientSuppliedId() throws Exception {
+        long existingId = createUser("Erin", "erin@example.com");
+        Map<String, Object> body = Map.of(
+                "id", existingId, "name", "Mallory", "email", "mallory@example.com", "password", "secret");
+
+        mockMvc.perform(post("/api/users")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(body)))
+                .andExpect(status().isOk());
+
+        org.junit.jupiter.api.Assertions.assertEquals("Erin", userRepository.findById(existingId).orElseThrow().getName());
+    }
+
+    private long createUser(String name, String email) throws Exception {
+        Map<String, String> user = Map.of("name", name, "email", email, "password", "secret");
+        MvcResult created = mockMvc.perform(post("/api/users")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(user)))
+                .andExpect(status().isOk())
+                .andReturn();
+        return objectMapper.readTree(created.getResponse().getContentAsString()).get("id").asLong();
     }
 
     @Test

@@ -105,7 +105,7 @@ POST /api/users/login
   payment-service validates the JWT before processing
 ```
 
-`/api/payments/**` requires a valid JWT. All other endpoints are public.
+`/api/payments/**` requires a valid JWT. All other endpoints are public. The `id` field in request bodies is ignored.
 
 `user-service` stores passwords as BCrypt hashes and never returns them in responses.
 
@@ -161,15 +161,15 @@ All requests go through the gateway at `http://localhost:8085`.
 | `POST` | `/api/users` | public | Create a user |
 | `GET` | `/api/users` | public | List all users |
 | `GET` | `/api/users/{id}` | public | Get user by ID |
-| `PUT` | `/api/users/{id}` | public | Update user |
+| `PUT` | `/api/users/{id}` | public | Update user (409 if the email is taken) |
 | `DELETE` | `/api/users/{id}` | public | Delete user |
-| `POST` | `/api/users/login` | public | Login — returns `{ "token": "..." }` |
+| `POST` | `/api/users/login` | public | Login — returns `{ "token": "..." }` (401 for invalid credentials) |
 
 ### Product Service
 
 | Method | Path | Auth | Description |
 |---|---|---|---|
-| `POST` | `/api/products` | public | Create product |
+| `POST` | `/api/products` | public | Create product (409 if the name is taken) |
 | `GET` | `/api/products` | public | List all products |
 | `GET` | `/api/products/{id}` | public | Get product by ID (404 if not found) |
 | `PUT` | `/api/products/{id}` | public | Update product |
@@ -181,7 +181,7 @@ All requests go through the gateway at `http://localhost:8085`.
 |---|---|---|---|
 | `POST` | `/api/orders` | public | Place an order and trigger payment (404 if the user or product doesn't exist) |
 | `GET` | `/api/orders` | public | List all orders |
-| `GET` | `/api/orders/{id}` | public | Get order by ID |
+| `GET` | `/api/orders/{id}` | public | Get order by ID (404 if not found) |
 
 ### Payment Service
 

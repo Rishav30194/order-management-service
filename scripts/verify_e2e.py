@@ -70,7 +70,7 @@ def run_checks():
     status, raw = call("POST", "/api/users/login", {"email": user_body["email"], "password": user_body["password"]})
     check("login with correct password", status == 200 and "token" in raw, str(status))
     status, raw = call("POST", "/api/users/login", {"email": user_body["email"], "password": "wrong"})
-    check("login with wrong password has no token", "token" not in raw, str(status))
+    check("login with wrong password returns 401", status == 401 and "token" not in raw, str(status))
 
     status, raw = call("POST", "/api/products",
                        {"name": "Widget", "description": "d", "price": 100, "stock": 5, "category": "c"})

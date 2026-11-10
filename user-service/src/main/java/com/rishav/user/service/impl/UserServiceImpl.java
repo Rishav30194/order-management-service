@@ -3,6 +3,7 @@ package com.rishav.user.service.impl;
 import com.rishav.user.config.JwtUtil;
 import com.rishav.user.dto.LoginRequest;
 import com.rishav.user.dto.LoginResponse;
+import com.rishav.user.exception.InvalidCredentialsException;
 import com.rishav.user.exception.UserNotFoundException;
 import com.rishav.user.model.User;
 import com.rishav.user.repository.UserRepository;
@@ -64,9 +65,9 @@ public class UserServiceImpl implements UserService {
     @Override
     public LoginResponse login(LoginRequest request) {
         User user = userRepository.findByEmail(request.email())
-                .orElseThrow(() -> new RuntimeException("Invalid credentials"));
+                .orElseThrow(InvalidCredentialsException::new);
         if (!passwordEncoder.matches(request.password(), user.getPassword())) {
-            throw new RuntimeException("Invalid credentials");
+            throw new InvalidCredentialsException();
         }
         return new LoginResponse(jwtUtil.generateToken(user.getEmail()));
     }

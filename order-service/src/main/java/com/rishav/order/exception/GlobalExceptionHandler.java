@@ -20,6 +20,11 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(errors);
     }
 
+    @ExceptionHandler(OrderNotFoundException.class)
+    public ResponseEntity<String> handleNotFound(OrderNotFoundException ex) {
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(ex.getMessage());
+    }
+
     @ExceptionHandler(HttpClientErrorException.NotFound.class)
     public ResponseEntity<String> handleDownstreamNotFound(HttpClientErrorException.NotFound ex) {
         return ResponseEntity.status(HttpStatus.NOT_FOUND).body(ex.getResponseBodyAsString());
