@@ -10,35 +10,58 @@ No frontend. All interaction is via REST (Postman / curl / API gateway at `:8085
 
 ### Topology
 
-```
-                         Client  (curl / Postman)
-                                    │
-                                    │  HTTP  :8085
-                                    ▼
-                         ┌────────────────────────┐
-                         │      API Gateway       │  :8085
-                         │  routes by path prefix │
-                         └───────────┬────────────┘
-                                     │  lb://<SERVICE>  (resolved via Eureka)
-        ┌────────────────┬───────────┴──────────┬─────────────────┐
-        ▼                ▼                      ▼                 ▼
-┌──────────────┐ ┌────────────────┐     ┌──────────────┐  ┌────────────────┐
-│ user-service │ │product-service │     │ order-service│  │ payment-service│
-│    :8081     │ │    :8082       │     │    :8083     │  │     :8088      │
-│  H2 userdb   │ │  H2 productdb  │     │  H2 orderdb  │  │  H2 paymentdb  │
-└──────────────┘ └────────────────┘     └──────────────┘  └────────────────┘
+```mermaid
+flowchart TB
+    client(["Client<br/>curl / Postman"])
+    gateway["<b>API Gateway</b><br/>:8085<br/>routes by path prefix"]
 
-  Platform services
-  ┌──────────────────────┐      ┌───────────────────────────────────────┐
-  │ Discovery (Eureka)   │      │ Config Server                         │
-  │ :8084                │      │ :8086 · native · classpath:/config/   │
-  │ service registry     │      │ shared props (Kafka, JWT secret, ...) │
-  └──────────────────────┘      └───────────────────────────────────────┘
+    subgraph services["Business services"]
+        direction LR
+        user["<b>user-service</b><br/>:8081"]
+        product["<b>product-service</b><br/>:8082"]
+        order["<b>order-service</b><br/>:8083"]
+        payment["<b>payment-service</b><br/>:8088"]
+        userdb[("H2<br/>userdb")]
+        productdb[("H2<br/>productdb")]
+        orderdb[("H2<br/>orderdb")]
+        paymentdb[("H2<br/>paymentdb")]
+        user --- userdb
+        product --- productdb
+        order --- orderdb
+        payment --- paymentdb
+    end
 
-  Every service registers with Eureka on startup and pulls config from the
-  config server. Clients use only the gateway port. Docker Compose also
-  publishes each service's port for local debugging.
+    kafka{{"<b>Kafka</b><br/>topic: payment-events"}}
+
+    subgraph platform["Platform services"]
+        direction LR
+        eureka["<b>Discovery (Eureka)</b><br/>:8084<br/>service registry"]
+        config["<b>Config Server</b><br/>:8086<br/>shared props: Kafka, JWT secret"]
+    end
+
+    client -->|"HTTP :8085"| gateway
+    gateway -->|"lb://SERVICE"| user & product & order & payment
+    payment -->|publish| kafka
+    kafka -->|consume| order
+    services -.->|"register and pull config"| platform
+
+    classDef entry fill:#fef3c7,stroke:#d97706,stroke-width:2px,color:#78350f
+    classDef svc fill:#dbeafe,stroke:#2563eb,stroke-width:2px,color:#1e3a8a
+    classDef db fill:#f1f5f9,stroke:#64748b,color:#334155
+    classDef msg fill:#fce7f3,stroke:#db2777,stroke-width:2px,color:#831843
+    classDef infra fill:#dcfce7,stroke:#16a34a,stroke-width:2px,color:#14532d
+
+    class client,gateway entry
+    class user,product,order,payment svc
+    class userdb,productdb,orderdb,paymentdb db
+    class kafka msg
+    class eureka,config infra
+
+    style services fill:transparent,stroke:#2563eb,stroke-dasharray:5 5
+    style platform fill:transparent,stroke:#16a34a,stroke-dasharray:5 5
 ```
+
+Every service registers with Eureka on startup and pulls config from the config server. Clients use only the gateway port. Docker Compose also publishes each service's port for local debugging.
 
 ### Runtime interaction — order orchestration
 
