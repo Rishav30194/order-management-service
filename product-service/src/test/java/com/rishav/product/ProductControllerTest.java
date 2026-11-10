@@ -10,6 +10,8 @@ import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 
+import java.util.Map;
+
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
@@ -64,6 +66,43 @@ class ProductControllerTest {
     void getProductById_unknownId_returns404() throws Exception {
         mockMvc.perform(get("/api/products/{id}", 999999L))
                 .andExpect(status().isNotFound());
+    }
+
+    @Test
+    void createProduct_duplicateName_returns409() throws Exception {
+        Product product = Product.builder()
+                .name("Unique Widget")
+                .price(10L)
+                .stock(1)
+                .category("Tools")
+                .build();
+        String body = objectMapper.writeValueAsString(product);
+
+        mockMvc.perform(post("/api/products").contentType(MediaType.APPLICATION_JSON).content(body))
+                .andExpect(status().isOk());
+        mockMvc.perform(post("/api/products").contentType(MediaType.APPLICATION_JSON).content(body))
+                .andExpect(status().isConflict());
+    }
+
+    @Test
+    void createProduct_ignoresClientSuppliedId() throws Exception {
+        Product original = Product.builder().name("Original").price(10L).stock(1).category("Tools").build();
+        MvcResult created = mockMvc.perform(post("/api/products")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(original)))
+                .andExpect(status().isOk())
+                .andReturn();
+        long id = objectMapper.readTree(created.getResponse().getContentAsString()).get("id").asLong();
+        Map<String, Object> overwrite = Map.of(
+                "id", id, "name", "Overwritten", "price", 1, "stock", 1, "category", "Tools");
+
+        mockMvc.perform(post("/api/products")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(overwrite)))
+                .andExpect(status().isOk());
+
+        mockMvc.perform(get("/api/products/{id}", id))
+                .andExpect(jsonPath("$.name").value("Original"));
     }
 
     @Test

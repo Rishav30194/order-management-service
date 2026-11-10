@@ -33,6 +33,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.contains;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -123,6 +124,26 @@ class OrderPlacementTest {
 
         assertEquals(OrderStatus.PAYMENT_FAILED, placed.getStatus());
         assertEquals(OrderStatus.PAYMENT_FAILED, storedStatus(placed));
+    }
+
+    @Test
+    void getOrder_unknownId_returns404() throws Exception {
+        mockMvc.perform(get("/api/orders/{id}", 999999L))
+                .andExpect(status().isNotFound());
+    }
+
+    @Test
+    void placeOrder_ignoresClientSuppliedId() throws Exception {
+        when(restTemplate.postForObject(contains("/api/payments"), any(), eq(Object.class))).thenReturn(Map.of());
+        Order existing = orderService.placeOrder(newOrder());
+        Map<String, Object> body = Map.of("id", existing.getId(), "userId", 7, "productId", 1, "quantity", 9);
+
+        mockMvc.perform(post("/api/orders")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(body)))
+                .andExpect(status().isOk());
+
+        assertEquals(1L, orderRepository.findById(existing.getId()).orElseThrow().getUserId());
     }
 
     @Test

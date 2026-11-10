@@ -1,6 +1,7 @@
 package com.rishav.order.model;
 
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import com.rishav.order.constant.OrderStatus;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.NotNull;
@@ -22,6 +23,7 @@ public class Order {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @JsonProperty(access = JsonProperty.Access.READ_ONLY)
     private Long id;
 
     @NotNull @Positive

@@ -1,5 +1,6 @@
 package com.rishav.product.exception;
 
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.MethodArgumentNotValidException;
@@ -14,6 +15,11 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(ProductNotFoundException.class)
     public ResponseEntity<String> handleNotFound(ProductNotFoundException ex) {
         return ResponseEntity.status(HttpStatus.NOT_FOUND).body(ex.getMessage());
+    }
+
+    @ExceptionHandler(DataIntegrityViolationException.class)
+    public ResponseEntity<String> handleConflict(DataIntegrityViolationException ex) {
+        return ResponseEntity.status(HttpStatus.CONFLICT).body("Product name already exists");
     }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)

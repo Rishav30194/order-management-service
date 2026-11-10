@@ -1,5 +1,6 @@
 package com.rishav.user.exception;
 
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.MethodArgumentNotValidException;
@@ -14,6 +15,16 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(UserNotFoundException.class)
     public ResponseEntity<String> handleNotFound(UserNotFoundException ex){
         return ResponseEntity.status(HttpStatus.NOT_FOUND).body(ex.getMessage());
+    }
+
+    @ExceptionHandler(InvalidCredentialsException.class)
+    public ResponseEntity<String> handleInvalidCredentials(InvalidCredentialsException ex) {
+        return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(ex.getMessage());
+    }
+
+    @ExceptionHandler(DataIntegrityViolationException.class)
+    public ResponseEntity<String> handleConflict(DataIntegrityViolationException ex) {
+        return ResponseEntity.status(HttpStatus.CONFLICT).body("Email already exists");
     }
 
     @ExceptionHandler(IllegalArgumentException.class)

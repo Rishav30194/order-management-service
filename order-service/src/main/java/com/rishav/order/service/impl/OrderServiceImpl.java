@@ -4,6 +4,7 @@ import com.rishav.order.config.JwtUtil;
 import com.rishav.order.constant.OrderStatus;
 import com.rishav.order.dto.PaymentRequest;
 import com.rishav.order.dto.ProductDTO;
+import com.rishav.order.exception.OrderNotFoundException;
 import com.rishav.order.model.Order;
 import com.rishav.order.repository.OrderRepository;
 import com.rishav.order.service.OrderService;
@@ -83,7 +84,7 @@ public class OrderServiceImpl implements OrderService {
     @Override
     public Order getOrderById(Long id) {
         return orderRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Order not found with ID: " + id));
+                .orElseThrow(() -> new OrderNotFoundException(id));
     }
 
     @Transactional(readOnly = true)
