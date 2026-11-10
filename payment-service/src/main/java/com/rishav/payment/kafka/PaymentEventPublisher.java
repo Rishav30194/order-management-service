@@ -4,8 +4,14 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Service;
 
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
+
 @Service
 public class PaymentEventPublisher {
+
+    private static final long SEND_TIMEOUT_SECONDS = 5;
 
     private final KafkaTemplate<String, String> kafkaTemplate;
 
@@ -16,9 +22,15 @@ public class PaymentEventPublisher {
         this.kafkaTemplate = kafkaTemplate;
     }
 
+    // Waits for the broker so a lost event fails the payment, which rolls back and lets order-service fail the order.
     public void publishPaymentEvent(String eventPayload){
-        kafkaTemplate.send(topic, eventPayload);
+        try {
+            kafkaTemplate.send(topic, eventPayload).get(SEND_TIMEOUT_SECONDS, TimeUnit.SECONDS);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new IllegalStateException("Interrupted while publishing payment event", e);
+        } catch (ExecutionException | TimeoutException e) {
+            throw new IllegalStateException("Failed to publish payment event", e);
+        }
     }
-
-
 }

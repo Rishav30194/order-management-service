@@ -18,16 +18,25 @@ import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
+import org.springframework.kafka.config.AbstractKafkaListenerContainerFactory;
+import org.springframework.kafka.config.ConcurrentKafkaListenerContainerFactory;
+import org.springframework.kafka.listener.DefaultErrorHandler;
+import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.util.backoff.BackOff;
+import org.springframework.util.backoff.BackOffExecution;
 import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.ResourceAccessException;
 import org.springframework.web.client.RestTemplate;
 
 import java.nio.charset.StandardCharsets;
+import java.time.LocalDateTime;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.contains;
@@ -66,6 +75,12 @@ class OrderPlacementTest {
 
     @Autowired
     private ObjectMapper objectMapper;
+
+    @Autowired
+    private DefaultErrorHandler paymentEventErrorHandler;
+
+    @Autowired
+    private ConcurrentKafkaListenerContainerFactory<?, ?> kafkaListenerContainerFactory;
 
     @MockitoBean
     private RestTemplate restTemplate;
@@ -127,6 +142,47 @@ class OrderPlacementTest {
     }
 
     @Test
+    void paymentTimeoutAfterSuccessEvent_keepsTerminalStatus() {
+        when(restTemplate.postForObject(contains("/api/payments"), any(), eq(Object.class))).thenAnswer(call -> {
+            PaymentRequest request = (PaymentRequest) ((HttpEntity<?>) call.getArgument(1)).getBody();
+            paymentEventConsumer.consume("{\"orderId\":\"" + request.orderId() + "\",\"status\":\"SUCCESS\"}");
+            throw new ResourceAccessException("read timed out");
+        });
+
+        Order placed = orderService.placeOrder(newOrder());
+
+        assertEquals(OrderStatus.PAYMENT_SUCCESS, storedStatus(placed));
+    }
+
+    @Test
+    void stalePayment_isFailedAndLateEventStillWins() {
+        Order stale = orderRepository.save(storedOrder(OrderStatus.PAYMENT_INITIATED, LocalDateTime.now().minusMinutes(10)));
+        Order recent = orderRepository.save(storedOrder(OrderStatus.PAYMENT_INITIATED, LocalDateTime.now()));
+        Order finished = orderRepository.save(storedOrder(OrderStatus.PAYMENT_SUCCESS, LocalDateTime.now().minusMinutes(10)));
+
+        orderService.failStalePayments();
+
+        assertEquals(OrderStatus.PAYMENT_FAILED, storedStatus(stale));
+        assertEquals(OrderStatus.PAYMENT_INITIATED, storedStatus(recent));
+        assertEquals(OrderStatus.PAYMENT_SUCCESS, storedStatus(finished));
+
+        paymentEventConsumer.consume("{\"orderId\":\"" + stale.getId() + "\",\"status\":\"SUCCESS\"}");
+
+        assertEquals(OrderStatus.PAYMENT_SUCCESS, storedStatus(stale));
+    }
+
+    @Test
+    void listenerRetriesDatabaseFailuresUntilRecovery() {
+        assertSame(paymentEventErrorHandler,
+                ReflectionTestUtils.getField(kafkaListenerContainerFactory, AbstractKafkaListenerContainerFactory.class, "commonErrorHandler"));
+        BackOffExecution backOff = ((BackOff) ReflectionTestUtils.getField(
+                ReflectionTestUtils.getField(paymentEventErrorHandler, "failureTracker"), "backOff")).start();
+        for (int attempt = 0; attempt < 1000; attempt++) {
+            assertNotEquals(BackOffExecution.STOP, backOff.nextBackOff());
+        }
+    }
+
+    @Test
     void getOrder_unknownId_returns404() throws Exception {
         mockMvc.perform(get("/api/orders/{id}", 999999L))
                 .andExpect(status().isNotFound());
@@ -157,6 +213,11 @@ class OrderPlacementTest {
                         .content(objectMapper.writeValueAsString(newOrder())))
                 .andExpect(status().isNotFound())
                 .andExpect(content().string("User not found"));
+    }
+
+    private Order storedOrder(OrderStatus status, LocalDateTime createdAt) {
+        return Order.builder().userId(1L).productId(1L).quantity(1).totalPrice(100L)
+                .status(status).createdAt(createdAt).build();
     }
 
     private Order newOrder() {

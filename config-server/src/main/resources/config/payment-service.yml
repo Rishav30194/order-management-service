@@ -3,6 +3,9 @@
 spring:
   kafka:
     producer:
+      properties:
+        # Without a limit, send() holds the payment's database connection for 60 seconds when the broker is down.
+        "[max.block.ms]": 5000
       key-serializer: org.apache.kafka.common.serialization.StringSerializer
       value-serializer: org.apache.kafka.common.serialization.StringSerializer
     consumer:

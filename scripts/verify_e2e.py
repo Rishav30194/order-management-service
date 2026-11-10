@@ -137,6 +137,17 @@ def run_checks():
     for line in sh("docker stats --no-stream --format '{{.Name}} {{.MemUsage}}'").stdout.splitlines():
         print(f"INFO  memory {line}")
 
+    # Runs last because it stops the broker.
+    sh("docker compose stop kafka")
+    status, raw = call("POST", "/api/orders", order)
+    check("order is accepted while Kafka is down", status == 200, str(status))
+    if status == 200:
+        order_id = json.loads(raw)["id"]
+        failed = wait_until(
+            lambda: json.loads(call("GET", f"/api/orders/{order_id}")[1])["status"] == "PAYMENT_FAILED", 20, 2)
+        check("order fails instead of sticking when Kafka is down", failed,
+              json.loads(call("GET", f"/api/orders/{order_id}")[1])["status"])
+
 
 def main():
     built = sh("docker compose --progress=plain up -d --build")
