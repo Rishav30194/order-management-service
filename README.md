@@ -65,21 +65,27 @@ Every service registers with Eureka on startup and pulls config from the config 
 
 ### Runtime interaction — order orchestration
 
-```
-  order-service  (orchestrates an order)
-        │
-        ├─ REST  GET  /api/users/{id}      ─▶ user-service      validate user exists
-        ├─ REST  GET  /api/products/{id}   ─▶ product-service   fetch price
-        └─ REST  POST /api/payments (+JWT) ─▶ payment-service   charge
-                                                   │
-                                                   │ publish
-                                                   ▼
-                                       Kafka topic: payment-events
-                                       { orderId, status }
-                                                   │
-                                                   │ consume
-                                                   ▼
-                                       order-service   update order status
+```mermaid
+flowchart LR
+    order["<b>order-service</b><br/>orchestrates an order"]
+    user["<b>user-service</b>"]
+    product["<b>product-service</b>"]
+    payment["<b>payment-service</b>"]
+    kafka{{"<b>Kafka</b><br/>topic: payment-events<br/>{ orderId, status }"}}
+
+    order -->|"REST GET /api/users/{id}<br/>validate user exists"| user
+    order -->|"REST GET /api/products/{id}<br/>fetch price"| product
+    order -->|"REST POST /api/payments + JWT<br/>charge"| payment
+    payment -->|publish| kafka
+    kafka -->|"consume<br/>update order status"| order
+
+    classDef entry fill:#fef3c7,stroke:#d97706,stroke-width:2px,color:#78350f
+    classDef svc fill:#dbeafe,stroke:#2563eb,stroke-width:2px,color:#1e3a8a
+    classDef msg fill:#fce7f3,stroke:#db2777,stroke-width:2px,color:#831843
+    classDef secret fill:#f1f5f9,stroke:#64748b,color:#334155
+
+    class order,user,product,payment svc
+    class kafka msg
 ```
 
 ### Communication
@@ -101,10 +107,21 @@ Every service registers with Eureka on startup and pulls config from the config 
 
 ### Order status lifecycle
 
-```
-                            ┌─▶ PAYMENT_SUCCESS
-PLACED ─▶ PAYMENT_INITIATED ─┤
-                            └─▶ PAYMENT_FAILED
+```mermaid
+stateDiagram-v2
+    direction LR
+    [*] --> PLACED: order saved
+    PLACED --> PAYMENT_INITIATED: before the payment call
+    PAYMENT_INITIATED --> PAYMENT_SUCCESS: SUCCESS event
+    PAYMENT_INITIATED --> PAYMENT_FAILED: FAILED event, fallback, or 5-minute timeout
+    PAYMENT_FAILED --> PAYMENT_SUCCESS: late SUCCESS event
+
+    classDef progress fill:#dbeafe,stroke:#2563eb,stroke-width:2px,color:#1e3a8a
+    classDef success fill:#dcfce7,stroke:#16a34a,stroke-width:2px,color:#14532d
+    classDef failed fill:#fee2e2,stroke:#dc2626,stroke-width:2px,color:#7f1d1d
+    class PLACED,PAYMENT_INITIATED progress
+    class PAYMENT_SUCCESS success
+    class PAYMENT_FAILED failed
 ```
 
 `order-service` commits `PLACED` then `PAYMENT_INITIATED` before it calls
@@ -113,19 +130,30 @@ the payment call fails, the circuit breaker fallback sets `PAYMENT_FAILED`.
 
 ### Security
 
-```
-POST /api/users/login
-        │
-        ▼
-  user-service issues JWT (HS256)         ─┐
-                                          │  shared signing secret
-  order-service mints a service-level JWT ─┘  (from config server)
-        │
-        ▼
-  POST /api/payments  +  Authorization: Bearer <jwt>
-        │
-        ▼
-  payment-service validates the JWT before processing
+```mermaid
+flowchart TB
+    client(["Client"])
+    secret[("Shared JWT_SECRET<br/>HS256 signing key")]
+    user["<b>user-service</b><br/>issues an end-user JWT on login"]
+    order["<b>order-service</b><br/>mints a service JWT<br/>subject: order-service"]
+    payment["<b>payment-service</b><br/>validates the JWT and requires<br/>subject order-service"]
+
+    client -->|"POST /api/users/login"| user
+    user -->|end-user JWT| client
+    secret -.-> user
+    secret -.-> order
+    order -->|"POST /api/payments<br/>Authorization: Bearer service JWT"| payment
+    client -.->|"POST /api/payments with end-user JWT<br/>rejected: 403 Forbidden"| payment
+    linkStyle 5 stroke:#dc2626,stroke-width:2px,color:#dc2626
+
+    classDef entry fill:#fef3c7,stroke:#d97706,stroke-width:2px,color:#78350f
+    classDef svc fill:#dbeafe,stroke:#2563eb,stroke-width:2px,color:#1e3a8a
+    classDef msg fill:#fce7f3,stroke:#db2777,stroke-width:2px,color:#831843
+    classDef secret fill:#f1f5f9,stroke:#64748b,color:#334155
+
+    class client entry
+    class user,order,payment svc
+    class secret secret
 ```
 
 `/api/payments/**` requires a valid JWT whose subject is `order-service`, so end-user tokens are rejected. All other endpoints are public. The `id` field in request bodies is ignored.
@@ -216,27 +244,37 @@ All requests go through the gateway at `http://localhost:8085`.
 
 ## Data Flow — Place an Order
 
-```
-POST /api/orders  { userId, productId, quantity }
-  │
-  ▼ api-gateway
-  │
-  ▼ order-service
-    ├─ GET /api/users/{userId}      → validate user exists
-    ├─ GET /api/products/{id}       → fetch price
-    ├─ totalPrice = price × quantity
-    ├─ save Order { status: PLACED }
-    ├─ save Order { status: PAYMENT_INITIATED }
-    └─ POST /api/payments  (+ JWT)
-         │
-         ▼ payment-service
-           ├─ validate JWT
-           ├─ MockPaymentProvider  →  80% SUCCESS / 20% FAILED
-           ├─ save PaymentResponse
-           └─ publish → Kafka: payment-events { orderId, status }
-                │
-                ▼ order-service (Kafka consumer)
-                  └─ update Order { status: PAYMENT_SUCCESS | PAYMENT_FAILED }
+```mermaid
+sequenceDiagram
+    autonumber
+    actor C as Client
+    participant G as api-gateway
+    participant O as order-service
+    participant U as user-service
+    participant P as product-service
+    participant Pay as payment-service
+    participant K as Kafka payment-events
+
+    C->>G: POST /api/orders { userId, productId, quantity }
+    G->>O: route
+    O->>U: GET /api/users/{userId}
+    U-->>O: user exists
+    O->>P: GET /api/products/{id}
+    P-->>O: price
+    Note over O: totalPrice = price × quantity<br/>save PLACED, then PAYMENT_INITIATED
+    O->>Pay: POST /api/payments (+ JWT)
+    Note over Pay: validate JWT<br/>MockPaymentProvider: 80% SUCCESS, 20% FAILED<br/>save PaymentResponse
+    Pay->>K: publish { orderId, status }
+    alt payment call succeeds
+        Pay-->>O: payment response
+        O-->>G: order (PAYMENT_INITIATED)
+    else call fails or times out
+        Note over O: circuit breaker fallback<br/>sets PAYMENT_FAILED
+        O-->>G: order (PAYMENT_FAILED)
+    end
+    G-->>C: 200 order
+    K-)O: consume { orderId, status }
+    Note over O: set PAYMENT_SUCCESS or PAYMENT_FAILED
 ```
 
 ---
