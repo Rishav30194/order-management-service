@@ -278,5 +278,7 @@ Service tests use `@SpringBootTest` + `MockMvc`, and `PaymentEventConsumerTest` 
 - **No transaction around the payment call** — `placeOrder()` commits `PAYMENT_INITIATED` before calling `payment-service`, because the breaker's thread and the Kafka consumer can't see uncommitted rows and the event can arrive before the HTTP response.
 - **Virtual threads** — the four business services handle requests on virtual threads, so blocking HTTP calls don't hold a platform thread.
 - **AOT cache** — each Docker image trains a Java ahead-of-time cache during the build, which roughly halves service startup time.
-- **Consumer failures** — malformed events and events with an unknown status are logged and skipped, which leaves the order in `PAYMENT_INITIATED`. Database failures reach Spring Kafka's default error handler, which retries 9 times and then logs and skips the record.
-- **Known limitation** — if the payment call times out after the charge succeeds, the fallback marks the order `PAYMENT_FAILED` until the Kafka event corrects it. If that event was processed before the timeout, the order stays `PAYMENT_FAILED`.
+- **Consumer failures** — malformed events and events with an unknown status are logged and skipped. Database failures retry every 5 seconds until the database recovers.
+- **Publishing** — `payment-service` waits up to 5 seconds for Kafka to acknowledge an event. If publishing fails, the payment rolls back and returns an error, and `order-service` marks the order `PAYMENT_FAILED`.
+- **Stale payments** — once a minute, `order-service` marks orders that have been in `PAYMENT_INITIATED` for 5 minutes as `PAYMENT_FAILED` (`order.payment-timeout`). A valid event that arrives later still sets the correct final status.
+- **Fallback writes** — the circuit breaker fallback only changes an order that's still in `PAYMENT_INITIATED`, so it can't overwrite a final status.

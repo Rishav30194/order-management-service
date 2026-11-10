@@ -10,6 +10,7 @@ import com.rishav.order.repository.OrderRepository;
 import com.rishav.order.service.OrderService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.cloud.client.circuitbreaker.CircuitBreakerFactory;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
@@ -18,6 +19,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.client.RestTemplate;
 
 import java.math.BigDecimal;
+import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.List;
 
@@ -30,6 +32,9 @@ public class OrderServiceImpl implements OrderService {
     private final RestTemplate restTemplate;
     private final CircuitBreakerFactory<?, ?> circuitBreakerFactory;
     private final JwtUtil jwtUtil;
+
+    @Value("${order.payment-timeout:PT5M}")
+    private Duration paymentTimeout;
 
     // Deliberately not @Transactional: each save must commit before the payment call, because the
     // circuit breaker runs that call on another thread and the payment-events consumer can process
@@ -74,8 +79,9 @@ public class OrderServiceImpl implements OrderService {
                 },
                 throwable -> {
                     log.error("Payment service unreachable for order {}: {}", initiatedOrder.getId(), throwable.getMessage());
-                    initiatedOrder.setStatus(OrderStatus.PAYMENT_FAILED);
-                    return orderRepository.save(initiatedOrder);
+                    orderRepository.updateStatusIfCurrent(
+                            initiatedOrder.getId(), OrderStatus.PAYMENT_INITIATED, OrderStatus.PAYMENT_FAILED);
+                    return orderRepository.findById(initiatedOrder.getId()).orElseThrow();
                 }
         );
     }
@@ -91,5 +97,17 @@ public class OrderServiceImpl implements OrderService {
     @Override
     public List<Order> getAllOrders() {
         return orderRepository.findAll();
+    }
+
+    @Transactional
+    @Override
+    public int failStalePayments() {
+        LocalDateTime cutoff = LocalDateTime.now().minus(paymentTimeout);
+        int failed = orderRepository.updateStatusIfCreatedBefore(
+                OrderStatus.PAYMENT_INITIATED, OrderStatus.PAYMENT_FAILED, cutoff);
+        if (failed > 0) {
+            log.warn("Marked {} orders PAYMENT_FAILED after no payment result for {}", failed, paymentTimeout);
+        }
+        return failed;
     }
 }

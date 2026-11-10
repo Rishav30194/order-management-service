@@ -10,4 +10,5 @@ public interface OrderService {
     Order placeOrder(Order order);
     Order getOrderById(Long id);
     List<Order> getAllOrders();
+    int failStalePayments();
 }
