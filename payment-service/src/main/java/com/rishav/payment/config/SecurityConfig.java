@@ -21,7 +21,7 @@ public class SecurityConfig {
         return http
                 .csrf(AbstractHttpConfigurer::disable)
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/api/payments/**").authenticated()
+                        .requestMatchers("/api/payments/**").hasAuthority(JwtAuthenticationFilter.SERVICE_AUTHORITY)
                         .anyRequest().permitAll()
                 )
                 .addFilterBefore(new JwtAuthenticationFilter(jwtUtil), UsernamePasswordAuthenticationFilter.class)

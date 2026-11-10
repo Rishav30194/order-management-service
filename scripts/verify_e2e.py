@@ -28,10 +28,10 @@ def sh(command):
     return subprocess.run(command, shell=True, cwd=ROOT, env=ENV, capture_output=True, text=True)
 
 
-def call(method, path, body=None):
+def call(method, path, body=None, headers=None):
     data = json.dumps(body).encode() if body is not None else None
     request = urllib.request.Request(
-        GATEWAY + path, data=data, method=method, headers={"Content-Type": "application/json"})
+        GATEWAY + path, data=data, method=method, headers={"Content-Type": "application/json", **(headers or {})})
     try:
         with urllib.request.urlopen(request, timeout=15) as response:
             return response.status, response.read().decode()
@@ -69,8 +69,12 @@ def run_checks():
 
     status, raw = call("POST", "/api/users/login", {"email": user_body["email"], "password": user_body["password"]})
     check("login with correct password", status == 200 and "token" in raw, str(status))
+    user_token = json.loads(raw)["token"] if status == 200 else ""
     status, raw = call("POST", "/api/users/login", {"email": user_body["email"], "password": "wrong"})
     check("login with wrong password returns 401", status == 401 and "token" not in raw, str(status))
+    payment = {"orderId": "1", "customerId": "c", "paymentMethod": "MOCK", "amount": 1}
+    status, _ = call("POST", "/api/payments", payment, {"Authorization": f"Bearer {user_token}"})
+    check("end-user token can't make a payment", status == 403, str(status))
 
     status, raw = call("POST", "/api/products",
                        {"name": "Widget", "description": "d", "price": 100, "stock": 5, "category": "c"})
