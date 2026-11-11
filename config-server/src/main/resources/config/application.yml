@@ -13,6 +13,7 @@ spring:
 kafka:
   topic:
     name: payment-events
+    dead-letter-name: payment-events.DLT
 
 eureka:
   client:
