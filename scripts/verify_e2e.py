@@ -143,10 +143,12 @@ def run_checks():
     check("order is accepted while Kafka is down", status == 200, str(status))
     if status == 200:
         order_id = json.loads(raw)["id"]
-        failed = wait_until(
-            lambda: json.loads(call("GET", f"/api/orders/{order_id}")[1])["status"] == "PAYMENT_FAILED", 20, 2)
-        check("order fails instead of sticking when Kafka is down", failed,
-              json.loads(call("GET", f"/api/orders/{order_id}")[1])["status"])
+        order_status = lambda: json.loads(call("GET", f"/api/orders/{order_id}")[1])["status"]
+        check("order waits for its payment event while Kafka is down",
+              order_status() == "PAYMENT_INITIATED", order_status())
+        sh("docker compose start kafka")
+        settled = wait_until(lambda: order_status() in terminal, 60, 2)
+        check("outbox delivers the payment event after Kafka returns", settled, order_status())
 
 
 def main():

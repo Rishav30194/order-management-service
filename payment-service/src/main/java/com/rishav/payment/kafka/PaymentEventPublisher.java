@@ -22,7 +22,7 @@ public class PaymentEventPublisher {
         this.kafkaTemplate = kafkaTemplate;
     }
 
-    // Waits for the broker so a lost event fails the payment, which rolls back and lets order-service fail the order.
+    // Waits for the broker so OutboxRelay deletes an outbox row only after Kafka has the event.
     public void publishPaymentEvent(String eventPayload){
         try {
             kafkaTemplate.send(topic, eventPayload).get(SEND_TIMEOUT_SECONDS, TimeUnit.SECONDS);

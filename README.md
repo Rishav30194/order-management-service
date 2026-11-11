@@ -264,8 +264,7 @@ sequenceDiagram
     P-->>O: price
     Note over O: totalPrice = price × quantity<br/>save PLACED, then PAYMENT_INITIATED
     O->>Pay: POST /api/payments (+ JWT)
-    Note over Pay: validate JWT<br/>MockPaymentProvider: 80% SUCCESS, 20% FAILED<br/>save PaymentResponse
-    Pay->>K: publish { orderId, status }
+    Note over Pay: validate JWT<br/>MockPaymentProvider: 80% SUCCESS, 20% FAILED<br/>save PaymentResponse and outbox row in one transaction
     alt payment call succeeds
         Pay-->>O: payment response
         O-->>G: order (PAYMENT_INITIATED)
@@ -274,6 +273,7 @@ sequenceDiagram
         O-->>G: order (PAYMENT_FAILED)
     end
     G-->>C: 200 order
+    Pay-)K: OutboxRelay publishes { orderId, status } within about 1 second
     K-)O: consume { orderId, status }
     Note over O: set PAYMENT_SUCCESS or PAYMENT_FAILED
 ```
@@ -341,7 +341,7 @@ Service tests use `@SpringBootTest` + `MockMvc`, and `PaymentEventConsumerTest` 
 - **Virtual threads** — the four business services handle requests on virtual threads, so blocking HTTP calls don't hold a platform thread.
 - **AOT cache** — each Docker image trains a Java ahead-of-time cache during the build, which roughly halves service startup time.
 - **Consumer failures** — malformed events and events with an unknown status are logged and skipped. Database failures retry every 5 seconds until the database recovers.
-- **Publishing** — `payment-service` waits up to 5 seconds for Kafka to acknowledge an event. If publishing fails, the payment rolls back and returns an error, and `order-service` marks the order `PAYMENT_FAILED`.
+- **Publishing (transactional outbox)** — `payment-service` saves each payment event in an `outbox_events` row in the payment's own transaction, so an event exists only if its payment committed. `OutboxRelay` publishes rows every second (`payment.outbox.relay-interval`) and deletes each one after Kafka acknowledges it, waiting up to 5 seconds. When Kafka is down, payments still succeed, and their events wait in the outbox until Kafka returns. Delivery is at least once, and `order-service` ignores duplicates.
 - **Stale payments** — once a minute, `order-service` marks orders that have been in `PLACED` or `PAYMENT_INITIATED` for 5 minutes as `PAYMENT_FAILED` (`order.payment-timeout`). `PLACED` covers an order whose placement stopped between its two saves. A valid event that arrives later still sets the correct final status.
 - **Fallback writes** — the circuit breaker fallback only changes an order that's still in `PAYMENT_INITIATED`, so it can't overwrite a final status.
 - **Event transitions** — the consumer changes an order's status only when the current status allows it. A `SUCCESS` event applies to `PAYMENT_INITIATED` or `PAYMENT_FAILED`, and a `FAILED` event applies only to `PAYMENT_INITIATED`, so `PAYMENT_SUCCESS` is final and a replayed or duplicate event can't undo it.
