@@ -19,6 +19,7 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.kafka.config.AbstractKafkaListenerContainerFactory;
+import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import org.springframework.kafka.config.ConcurrentKafkaListenerContainerFactory;
 import org.springframework.kafka.listener.DefaultErrorHandler;
 import org.springframework.test.util.ReflectionTestUtils;
@@ -39,6 +40,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.contains;
@@ -352,6 +354,19 @@ class OrderPlacementTest {
         assertNull(orderRepository.findById(old.getId()).orElseThrow().getIdempotencyKey());
         assertEquals("key-recent", orderRepository.findById(recent.getId()).orElseThrow().getIdempotencyKey());
         assertNotEquals(old.getId(), postOrder("key-old", newOrder()));
+    }
+
+    // The consumer's update query bumps the version, so a copy loaded before it can't overwrite the final status.
+    @Test
+    void staleCopy_cannotOverwriteConditionalUpdate() {
+        Order order = orderRepository.save(storedOrder(OrderStatus.PAYMENT_INITIATED, LocalDateTime.now()));
+        Order staleCopy = orderRepository.findById(order.getId()).orElseThrow();
+        paymentEventConsumer.consume("{\"orderId\":\"" + order.getId() + "\",\"status\":\"SUCCESS\"}");
+
+        staleCopy.setStatus(OrderStatus.PAYMENT_FAILED);
+
+        assertThrows(ObjectOptimisticLockingFailureException.class, () -> orderRepository.save(staleCopy));
+        assertEquals(OrderStatus.PAYMENT_SUCCESS, storedStatus(order));
     }
 
     private long postOrder(String idempotencyKey, Order order) throws Exception {

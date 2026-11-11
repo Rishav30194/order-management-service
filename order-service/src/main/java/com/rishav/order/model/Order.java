@@ -47,5 +47,11 @@ public class Order {
     @Column(unique = true, length = IDEMPOTENCY_KEY_MAX_LENGTH)
     private String idempotencyKey;
 
+    // A save() of a copy loaded before another write fails instead of overwriting that write. The repository's
+    // update queries bypass this check, so each one increments the version itself.
+    @Version
+    @JsonIgnore
+    private Long version;
+
     public static final int IDEMPOTENCY_KEY_MAX_LENGTH = 255;
 }
