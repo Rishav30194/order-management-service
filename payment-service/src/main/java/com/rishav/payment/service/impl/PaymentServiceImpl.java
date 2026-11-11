@@ -4,9 +4,10 @@ import tools.jackson.databind.ObjectMapper;
 import com.rishav.payment.dto.PaymentEvent;
 import com.rishav.payment.dto.PaymentRequest;
 import com.rishav.payment.dto.PaymentResponseDto;
+import com.rishav.payment.entity.OutboxEvent;
 import com.rishav.payment.entity.PaymentResponse;
-import com.rishav.payment.kafka.PaymentEventPublisher;
 import com.rishav.payment.provider.PaymentProvider;
+import com.rishav.payment.repository.OutboxEventRepository;
 import com.rishav.payment.repository.PaymentResponseRepository;
 import com.rishav.payment.service.PaymentService;
 import lombok.AllArgsConstructor;
@@ -19,7 +20,7 @@ public class PaymentServiceImpl implements PaymentService {
 
     private final PaymentProvider paymentProvider;
     private final PaymentResponseRepository repository;
-    private final PaymentEventPublisher eventPublisher;
+    private final OutboxEventRepository outboxEventRepository;
     private final ObjectMapper objectMapper;
 
     @Transactional
@@ -36,9 +37,10 @@ public class PaymentServiceImpl implements PaymentService {
 
         repository.save(saved);
 
+        // Saved in this transaction instead of sent to Kafka here: a send that times out can still reach the broker
+        // after a rollback. OutboxRelay publishes the row once this commits.
         String eventJson = objectMapper.writeValueAsString(new PaymentEvent(response.orderId(), response.status()));
-
-        eventPublisher.publishPaymentEvent(eventJson);
+        outboxEventRepository.save(OutboxEvent.builder().payload(eventJson).build());
 
         return response;
     }
