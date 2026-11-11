@@ -5,6 +5,8 @@ import com.rishav.order.constant.OrderStatus;
 import com.rishav.order.dto.PaymentRequest;
 import com.rishav.order.dto.ProductDTO;
 import com.rishav.order.exception.DownstreamUnavailableException;
+import com.rishav.order.exception.IdempotencyKeyConflictException;
+import com.rishav.order.exception.InvalidIdempotencyKeyException;
 import com.rishav.order.exception.OrderNotFoundException;
 import com.rishav.order.model.Order;
 import com.rishav.order.repository.OrderRepository;
@@ -14,6 +16,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.cloud.client.circuitbreaker.CircuitBreakerFactory;
 import org.springframework.core.retry.RetryTemplate;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.stereotype.Service;
@@ -27,6 +30,8 @@ import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.EnumSet;
 import java.util.List;
+import java.util.Objects;
+import java.util.Optional;
 
 @Slf4j
 @Service
@@ -46,7 +51,17 @@ public class OrderServiceImpl implements OrderService {
     // circuit breaker runs that call on another thread and the payment-events consumer can process
     // the result before the call returns.
     @Override
-    public Order placeOrder(Order order) {
+    public Order placeOrder(Order order, String idempotencyKey) {
+        if (idempotencyKey != null) {
+            if (idempotencyKey.isBlank() || idempotencyKey.length() > Order.IDEMPOTENCY_KEY_MAX_LENGTH) {
+                throw new InvalidIdempotencyKeyException(Order.IDEMPOTENCY_KEY_MAX_LENGTH);
+            }
+            Optional<Order> existing = orderRepository.findByIdempotencyKey(idempotencyKey);
+            if (existing.isPresent()) {
+                return sameRequestOrConflict(existing.get(), order);
+            }
+        }
+
         String userUrl = "http://USER-SERVICE/api/users/" + order.getUserId();
         Object userResponse = fetch(userUrl, Object.class, "user-service");
         if (userResponse == null) {
@@ -62,7 +77,18 @@ public class OrderServiceImpl implements OrderService {
         order.setTotalPrice(Math.multiplyExact(product.price(), order.getQuantity()));
         order.setStatus(OrderStatus.PLACED);
         order.setCreatedAt(LocalDateTime.now());
-        Order savedOrder = orderRepository.save(order);
+        order.setIdempotencyKey(idempotencyKey);
+        Order savedOrder;
+        try {
+            savedOrder = orderRepository.save(order);
+        } catch (DataIntegrityViolationException e) {
+            // A concurrent request with the same key saved first, so return its order and skip this payment.
+            if (idempotencyKey == null) {
+                throw e;
+            }
+            Order winner = orderRepository.findByIdempotencyKey(idempotencyKey).orElseThrow(() -> e);
+            return sameRequestOrConflict(winner, order);
+        }
 
         PaymentRequest paymentRequest = PaymentRequest.builder()
                 .orderId(String.valueOf(savedOrder.getId()))
@@ -92,6 +118,16 @@ public class OrderServiceImpl implements OrderService {
                     return orderRepository.findById(initiatedOrder.getId()).orElseThrow();
                 }
         );
+    }
+
+    private static Order sameRequestOrConflict(Order existing, Order request) {
+        boolean same = Objects.equals(existing.getUserId(), request.getUserId())
+                && Objects.equals(existing.getProductId(), request.getProductId())
+                && Objects.equals(existing.getQuantity(), request.getQuantity());
+        if (!same) {
+            throw new IdempotencyKeyConflictException(existing.getId());
+        }
+        return existing;
     }
 
     // A 4xx still propagates, so an unknown user or product stays a 404. IllegalStateException is the load

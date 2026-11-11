@@ -1,6 +1,7 @@
 package com.rishav.order.model;
 
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.rishav.order.constant.OrderStatus;
 import jakarta.persistence.*;
@@ -40,4 +41,11 @@ public class Order {
     private OrderStatus status;
 
     private LocalDateTime createdAt;
+
+    // Comes from the Idempotency-Key header, never the request body. Unique, so a concurrent repeat fails to save.
+    @JsonIgnore
+    @Column(unique = true, length = IDEMPOTENCY_KEY_MAX_LENGTH)
+    private String idempotencyKey;
+
+    public static final int IDEMPOTENCY_KEY_MAX_LENGTH = 255;
 }

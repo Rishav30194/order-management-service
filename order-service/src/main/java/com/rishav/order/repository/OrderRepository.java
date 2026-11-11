@@ -9,8 +9,11 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.Collection;
+import java.util.Optional;
 
 public interface OrderRepository extends JpaRepository<Order, Long> {
+
+    Optional<Order> findByIdempotencyKey(String idempotencyKey);
 
     // Conditional so a status the Kafka consumer already wrote is never overwritten.
     @Transactional

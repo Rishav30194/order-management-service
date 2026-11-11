@@ -30,6 +30,16 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(HttpStatus.NOT_FOUND).body(ex.getResponseBodyAsString());
     }
 
+    @ExceptionHandler(IdempotencyKeyConflictException.class)
+    public ResponseEntity<String> handleIdempotencyConflict(IdempotencyKeyConflictException ex) {
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(ex.getMessage());
+    }
+
+    @ExceptionHandler(InvalidIdempotencyKeyException.class)
+    public ResponseEntity<String> handleInvalidIdempotencyKey(InvalidIdempotencyKeyException ex) {
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(ex.getMessage());
+    }
+
     @ExceptionHandler(DownstreamUnavailableException.class)
     public ResponseEntity<String> handleDownstreamUnavailable(DownstreamUnavailableException ex) {
         return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).body(ex.getMessage());
