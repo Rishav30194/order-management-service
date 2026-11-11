@@ -335,7 +335,7 @@ Service tests use `@SpringBootTest` + `MockMvc`, and `PaymentEventConsumerTest` 
 - **H2 in-memory per service** — no external DB needed for local dev; data resets on restart.
 - **Native config** — config-server serves YAML from `classpath:/config/` (no external Git repo).
 - **Mock payment provider** — 80% SUCCESS / 20% FAILED, random transaction ID.
-- **Circuit breaker** — Resilience4j wraps the order-service → payment-service call; on failure the order is saved as `PAYMENT_FAILED`. The call runs on a virtual thread with Resilience4j's default 1-second time limit.
+- **Circuit breaker** — Resilience4j wraps the order-service → payment-service call; on failure the order is saved as `PAYMENT_FAILED`. The call runs on a virtual thread with a 12-second time limit (`resilience4j.timelimiter.instances.payment-service.timeout-duration`), longer than `payment-service`'s worst case of about 10 seconds when Kafka is slow.
 - **No transaction around the payment call** — `placeOrder()` commits `PAYMENT_INITIATED` before calling `payment-service`, because the breaker's thread and the Kafka consumer can't see uncommitted rows and the event can arrive before the HTTP response.
 - **Virtual threads** — the four business services handle requests on virtual threads, so blocking HTTP calls don't hold a platform thread.
 - **AOT cache** — each Docker image trains a Java ahead-of-time cache during the build, which roughly halves service startup time.
