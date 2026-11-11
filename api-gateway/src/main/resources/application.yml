@@ -10,6 +10,21 @@ spring:
     gateway:
       server:
         webflux:
+          # An order can take about 19 seconds: user and product lookups, then up to 12 seconds of payment tries.
+          httpclient:
+            connect-timeout: 2000
+            response-timeout: 30s
+          # GET only: repeating POST /api/orders without an Idempotency-Key header places a second order.
+          default-filters:
+            - name: Retry
+              args:
+                retries: 2
+                methods: GET
+                backoff:
+                  firstBackoff: 100ms
+                  maxBackoff: 500ms
+                  factor: 2
+                  basedOnPreviousValue: false
           routes:
             - id: user-service
               uri: lb://USER-SERVICE
