@@ -104,6 +104,7 @@ flowchart LR
 | Producer | Consumer | Topic | Payload |
 |---|---|---|---|
 | `payment-service` | `order-service` | `payment-events` | `{"orderId":"...","status":"SUCCESS\|FAILED"}` |
+| `order-service` | None (replay by hand) | `payment-events.DLT` | A `payment-events` event that failed with an error other than a database outage |
 
 ### Order status lifecycle
 
@@ -342,7 +343,16 @@ Service tests use `@SpringBootTest` + `MockMvc`, and `PaymentEventConsumerTest` 
 - **No transaction around the payment call** — `placeOrder()` commits `PAYMENT_INITIATED` before calling `payment-service`, because the breaker's thread and the Kafka consumer can't see uncommitted rows and the event can arrive before the HTTP response.
 - **Virtual threads** — the four business services handle requests on virtual threads, so blocking HTTP calls don't hold a platform thread.
 - **AOT cache** — each Docker image trains a Java ahead-of-time cache during the build, which roughly halves service startup time.
-- **Consumer failures** — malformed events and events with an unknown status are logged and skipped. Database failures retry every 5 seconds until the database recovers.
+- **Consumer failures** — malformed events and events with an unknown status are logged and skipped. Database failures retry every 5 seconds until the database recovers. Any other failure sends the event to `payment-events.DLT` at once, so it can't block later events on its partition. `order-service` creates that topic on startup.
+
+  To read the dead-letter topic, and then replay an event by pasting it into the producer:
+
+  ```bash
+  docker compose exec kafka /opt/kafka/bin/kafka-console-consumer.sh \
+    --bootstrap-server localhost:9092 --topic payment-events.DLT --from-beginning
+  docker compose exec -it kafka /opt/kafka/bin/kafka-console-producer.sh \
+    --bootstrap-server localhost:9092 --topic payment-events
+  ```
 - **Publishing (transactional outbox)** — `payment-service` saves each payment event in an `outbox_events` row in the payment's own transaction, so an event exists only if its payment committed. `OutboxRelay` publishes rows every second (`payment.outbox.relay-interval`) and deletes each one after Kafka acknowledges it, waiting up to 5 seconds. When Kafka is down, payments still succeed, and their events wait in the outbox until Kafka returns. Delivery is at least once, and `order-service` ignores duplicates.
 - **Idempotent payments** — `payment-service` processes each `orderId` at most once. A repeat request with the same amount gets the original response and writes no second payment or event. A repeat with a different amount gets `409 Conflict`. Amounts take at most two decimal places, so `500` and `500.00` match. A unique constraint on `payment_responses.order_id` covers concurrent first requests: the losing insert fails, and the controller retries once and returns the winner's payment. Both requests call the payment provider, and the loser's result is discarded. That's harmless with the mock provider; a real gateway needs a `PENDING` row written before the charge.
 - **Stale payments** — once a minute, `order-service` marks orders that have been in `PLACED` or `PAYMENT_INITIATED` for 5 minutes as `PAYMENT_FAILED` (`order.payment-timeout`). `PLACED` covers an order whose placement stopped between its two saves. A valid event that arrives later still sets the correct final status.
