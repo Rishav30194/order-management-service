@@ -257,6 +257,17 @@ class OrderPlacementTest {
     }
 
     @Test
+    void emptyProductResponse_returns503() throws Exception {
+        when(restTemplate.getForObject(contains("/api/products/"), eq(ProductDTO.class))).thenReturn(null);
+
+        mockMvc.perform(post("/api/orders")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(newOrder())))
+                .andExpect(status().isServiceUnavailable())
+                .andExpect(content().string("product-service is unavailable"));
+    }
+
+    @Test
     void productServiceError_returns503() throws Exception {
         when(restTemplate.getForObject(contains("/api/products/"), eq(ProductDTO.class)))
                 .thenThrow(HttpServerErrorException.create(HttpStatus.INTERNAL_SERVER_ERROR, "Internal Server Error",

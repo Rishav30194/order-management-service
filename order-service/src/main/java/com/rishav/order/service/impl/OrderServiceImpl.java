@@ -66,16 +66,10 @@ public class OrderServiceImpl implements OrderService {
         }
 
         String userUrl = "http://USER-SERVICE/api/users/" + order.getUserId();
-        Object userResponse = fetch(userUrl, Object.class, "user-service");
-        if (userResponse == null) {
-            throw new RuntimeException("User not found with ID: " + order.getUserId());
-        }
+        fetch(userUrl, Object.class, "user-service");
 
         String productUrl = "http://PRODUCT-SERVICE/api/products/" + order.getProductId();
         ProductDTO product = fetch(productUrl, ProductDTO.class, "product-service");
-        if (product == null) {
-            throw new RuntimeException("Product not found with ID: " + order.getProductId());
-        }
 
         order.setTotalPrice(Math.multiplyExact(product.price(), order.getQuantity()));
         order.setStatus(OrderStatus.PLACED);
@@ -136,11 +130,17 @@ public class OrderServiceImpl implements OrderService {
     // A 4xx still propagates, so an unknown user or product stays a 404. IllegalStateException is the load
     // balancer's error when the service has no registered instance.
     private <T> T fetch(String url, Class<T> type, String service) {
+        T body;
         try {
-            return restTemplate.getForObject(url, type);
+            body = restTemplate.getForObject(url, type);
         } catch (ResourceAccessException | HttpServerErrorException | IllegalStateException e) {
             throw new DownstreamUnavailableException(service, e);
         }
+        // A missing user or product comes back as a 404, so an empty 2xx body means the service itself is broken.
+        if (body == null) {
+            throw new DownstreamUnavailableException(service, new IllegalStateException("empty response from " + url));
+        }
+        return body;
     }
 
     @Transactional(readOnly = true)
