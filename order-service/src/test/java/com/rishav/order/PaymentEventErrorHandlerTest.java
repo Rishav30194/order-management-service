@@ -50,10 +50,10 @@ class PaymentEventErrorHandlerTest {
     @Test
     void failureThatIsNotRetried_goesToDeadLetterTopic() {
         when(template.send(any(ProducerRecord.class))).thenReturn(CompletableFuture.completedFuture(null));
-        ConsumerRecord<String, String> record =
+        ConsumerRecord<String, String> consumerRecord =
                 new ConsumerRecord<>("payment-events", 0, 7L, null, "{\"orderId\":\"1\",\"status\":\"SUCCESS\"}");
 
-        boolean handled = handler.handleOne(listenerFailure(new NullPointerException()), record,
+        boolean handled = handler.handleOne(listenerFailure(new NullPointerException()), consumerRecord,
                 mock(Consumer.class), mock(MessageListenerContainer.class));
 
         assertTrue(handled);
@@ -61,7 +61,7 @@ class PaymentEventErrorHandlerTest {
         ArgumentCaptor<ProducerRecord<Object, Object>> sent = ArgumentCaptor.forClass(ProducerRecord.class);
         verify(template).send(sent.capture());
         assertEquals(DEAD_LETTER_TOPIC, sent.getValue().topic());
-        assertEquals(record.value(), sent.getValue().value());
+        assertEquals(consumerRecord.value(), sent.getValue().value());
     }
 
     private DefaultErrorHandler errorHandler() {

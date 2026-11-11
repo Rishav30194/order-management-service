@@ -37,7 +37,7 @@ public class KafkaConsumerConfig {
     @Bean
     public DefaultErrorHandler paymentEventErrorHandler(KafkaOperations<?, ?> kafkaTemplate) {
         DeadLetterPublishingRecoverer recoverer = new DeadLetterPublishingRecoverer(kafkaTemplate,
-                (record, exception) -> new TopicPartition(deadLetterTopic, -1));
+                (_, _) -> new TopicPartition(deadLetterTopic, -1));
         DefaultErrorHandler handler = new DefaultErrorHandler(
                 recoverer, new FixedBackOff(RETRY_INTERVAL_MS, FixedBackOff.UNLIMITED_ATTEMPTS));
         handler.setClassifications(DATABASE_UNAVAILABLE, false);

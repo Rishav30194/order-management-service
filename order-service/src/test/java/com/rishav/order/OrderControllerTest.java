@@ -16,7 +16,6 @@ import java.time.LocalDateTime;
 import java.util.List;
 
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
@@ -84,7 +83,7 @@ class OrderControllerTest {
                 .createdAt(LocalDateTime.now())
                 .build();
 
-        when(orderService.getOrderById(eq(42L))).thenReturn(order);
+        when(orderService.getOrderById(42L)).thenReturn(order);
 
         mockMvc.perform(get("/api/orders/42"))
                 .andExpect(status().isOk())

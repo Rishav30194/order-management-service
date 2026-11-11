@@ -2,7 +2,6 @@ package com.rishav.payment.controller;
 
 import com.rishav.payment.dto.PaymentRequest;
 import com.rishav.payment.dto.PaymentResponseDto;
-import com.rishav.payment.entity.PaymentResponse;
 import com.rishav.payment.service.PaymentService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -25,7 +24,7 @@ public class PaymentController {
         PaymentResponseDto response;
         try {
             response = paymentService.handlePayment(request);
-        } catch (DataIntegrityViolationException e) {
+        } catch (DataIntegrityViolationException _) {
             // A concurrent request for the same order committed first. The failed transaction has rolled back,
             // so a second call in a fresh transaction finds that payment and returns it.
             response = paymentService.handlePayment(request);
