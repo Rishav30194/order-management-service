@@ -346,13 +346,11 @@ Service tests use `@SpringBootTest` + `MockMvc`, and `PaymentEventConsumerTest` 
 - **AOT cache** — each Docker image trains a Java ahead-of-time cache during the build, which roughly halves service startup time.
 - **Consumer failures** — malformed events and events with an unknown status are logged and skipped. Database failures retry every 5 seconds until the database recovers. Any other failure sends the event to `payment-events.DLT` at once, so it can't block later events on its partition. `order-service` creates that topic on startup.
 
-  To read the dead-letter topic, and then replay an event by pasting it into the producer:
+  After fixing whatever made `order-service` reject the events, replay them with `scripts/replay_dlt.py`. Each run replays only events dead-lettered since the previous run (consumer group `dlt-replay`), keyed by `orderId`. Replaying an event twice is harmless, because the consumer applies only allowed status transitions.
 
   ```bash
-  docker compose exec kafka /opt/kafka/bin/kafka-console-consumer.sh \
-    --bootstrap-server localhost:9092 --topic payment-events.DLT --from-beginning
-  docker compose exec -it kafka /opt/kafka/bin/kafka-console-producer.sh \
-    --bootstrap-server localhost:9092 --topic payment-events
+  python3 scripts/replay_dlt.py --dry-run   # list every dead-lettered event; replays nothing
+  python3 scripts/replay_dlt.py             # replay new dead-lettered events to payment-events
   ```
 - **Publishing (transactional outbox)** — `payment-service` saves each payment event in an `outbox_events` row in the payment's own transaction, so an event exists only if its payment committed. `OutboxRelay` publishes rows every second (`payment.outbox.relay-interval`) and deletes each one after Kafka acknowledges it, waiting up to 5 seconds. When Kafka is down, payments still succeed, and their events wait in the outbox until Kafka returns. Delivery is at least once, and `order-service` ignores duplicates.
 - **Idempotent payments** — `payment-service` processes each `orderId` at most once. A repeat request with the same amount gets the original response and writes no second payment or event. A repeat with a different amount gets `409 Conflict`. Amounts take at most two decimal places, so `500` and `500.00` match. A unique constraint on `payment_responses.order_id` covers concurrent first requests: the losing insert fails, and the controller retries once and returns the winner's payment. Both requests call the payment provider, and the loser's result is discarded. That's harmless with the mock provider; a real gateway needs a `PENDING` row written before the charge.
