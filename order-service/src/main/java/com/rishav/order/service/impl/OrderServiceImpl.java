@@ -12,6 +12,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.cloud.client.circuitbreaker.CircuitBreakerFactory;
+import org.springframework.core.retry.RetryTemplate;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.stereotype.Service;
@@ -33,6 +34,7 @@ public class OrderServiceImpl implements OrderService {
     private final RestTemplate restTemplate;
     private final CircuitBreakerFactory<?, ?> circuitBreakerFactory;
     private final JwtUtil jwtUtil;
+    private final RetryTemplate paymentRetryTemplate;
 
     @Value("${order.payment-timeout:PT5M}")
     private Duration paymentTimeout;
@@ -75,7 +77,9 @@ public class OrderServiceImpl implements OrderService {
                     HttpHeaders headers = new HttpHeaders();
                     headers.set("Authorization", "Bearer " + jwtUtil.generateToken("order-service"));
                     HttpEntity<PaymentRequest> entity = new HttpEntity<>(paymentRequest, headers);
-                    restTemplate.postForObject("http://PAYMENT-SERVICE/api/payments", entity, Object.class);
+                    // Inside the breaker, so it records one result per order and an open circuit isn't retried.
+                    paymentRetryTemplate.invoke(() ->
+                            restTemplate.postForObject("http://PAYMENT-SERVICE/api/payments", entity, Object.class));
                     return initiatedOrder;
                 },
                 throwable -> {
