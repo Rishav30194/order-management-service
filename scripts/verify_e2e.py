@@ -105,6 +105,16 @@ def run_checks():
     settled = wait_until(lambda: set(statuses()) <= terminal, attempts=20, delay=2)
     check("all orders reach a terminal status", settled, str(statuses()))
 
+    key = {"Idempotency-Key": secrets.token_hex(8)}
+    first, repeat = call("POST", "/api/orders", order, key), call("POST", "/api/orders", order, key)
+    same_order = first[0] == repeat[0] == 200 and json.loads(first[1])["id"] == json.loads(repeat[1])["id"]
+    check("repeat with the same Idempotency-Key returns the first order", same_order, f"{first[0]} {repeat[0]}")
+    status, raw = call("POST", "/api/orders", {**order, "quantity": 2}, key)
+    check("same Idempotency-Key with a different body returns 409", status == 409, str(status))
+
+    topics = sh("docker compose exec -T kafka /opt/kafka/bin/kafka-topics.sh --bootstrap-server localhost:9092 --list")
+    check("order-service creates the dead-letter topic", "payment-events.DLT" in topics.stdout.split())
+
     order_logs = sh("docker compose logs order-service").stdout
     for text in ["Payment service unreachable", "unknown order id", "Row was updated", "Failed to parse"]:
         check(f"order-service log has no '{text}'", order_logs.count(text) == 0, str(order_logs.count(text)))
@@ -149,6 +159,13 @@ def run_checks():
         sh("docker compose start kafka")
         settled = wait_until(lambda: order_status() in terminal, 60, 2)
         check("outbox delivers the payment event after Kafka returns", settled, order_status())
+
+    # Runs last because it stops product-service. Until Eureka drops the instance the call is refused, and after
+    # that the load balancer finds no instance; both return 503.
+    sh("docker compose stop product-service")
+    unavailable = wait_until(lambda: call("POST", "/api/orders", order)[0] == 503, attempts=10, delay=2)
+    status, raw = call("POST", "/api/orders", order)
+    check("order returns 503 while product-service is down", unavailable, f"{status} {raw[:60]}")
 
 
 def main():
