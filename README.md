@@ -103,7 +103,7 @@ flowchart LR
 
 | Producer | Consumer | Topic | Payload |
 |---|---|---|---|
-| `payment-service` | `order-service` | `payment-events` | `{"orderId":"...","status":"SUCCESS\|FAILED"}` |
+| `payment-service` | `order-service` | `payment-events` | `{"orderId":"...","status":"SUCCESS\|FAILED"}`, keyed by `orderId` so one order's events stay in order |
 | `order-service` | None (replay by hand) | `payment-events.DLT` | A `payment-events` event that failed with an error other than a database outage |
 
 ### Order status lifecycle

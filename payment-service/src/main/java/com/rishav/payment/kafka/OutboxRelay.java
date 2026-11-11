@@ -21,7 +21,7 @@ public class OutboxRelay {
     public void relay() {
         for (OutboxEvent event : outboxEventRepository.findTop100ByOrderByIdAsc()) {
             try {
-                eventPublisher.publishPaymentEvent(event.getPayload());
+                eventPublisher.publishPaymentEvent(event.getOrderId(), event.getPayload());
             } catch (RuntimeException e) {
                 // Kafka is likely down, so the rest of the batch would fail too. The next run starts from this row.
                 log.warn("Outbox event {} not published, retrying next run: {}", event.getId(), e.getMessage());
