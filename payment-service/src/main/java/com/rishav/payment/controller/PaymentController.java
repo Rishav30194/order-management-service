@@ -6,6 +6,7 @@ import com.rishav.payment.entity.PaymentResponse;
 import com.rishav.payment.service.PaymentService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -21,7 +22,14 @@ public class PaymentController {
 
     @PostMapping
     public ResponseEntity<PaymentResponseDto> makePayment(@Valid @RequestBody PaymentRequest request) {
-        PaymentResponseDto response = paymentService.handlePayment(request);
+        PaymentResponseDto response;
+        try {
+            response = paymentService.handlePayment(request);
+        } catch (DataIntegrityViolationException e) {
+            // A concurrent request for the same order committed first. The failed transaction has rolled back,
+            // so a second call in a fresh transaction finds that payment and returns it.
+            response = paymentService.handlePayment(request);
+        }
         return ResponseEntity.ok(response);
     }
 

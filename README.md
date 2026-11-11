@@ -239,7 +239,7 @@ All requests go through the gateway at `http://localhost:8085`.
 
 | Method | Path | Auth | Description |
 |---|---|---|---|
-| `POST` | `/api/payments` | `order-service` JWT required | Process a payment (rejects end-user tokens with 403) |
+| `POST` | `/api/payments` | `order-service` JWT required | Process a payment once per order (rejects end-user tokens with 403, and a repeat with a different amount with 409) |
 
 ---
 
@@ -342,6 +342,7 @@ Service tests use `@SpringBootTest` + `MockMvc`, and `PaymentEventConsumerTest` 
 - **AOT cache** — each Docker image trains a Java ahead-of-time cache during the build, which roughly halves service startup time.
 - **Consumer failures** — malformed events and events with an unknown status are logged and skipped. Database failures retry every 5 seconds until the database recovers.
 - **Publishing (transactional outbox)** — `payment-service` saves each payment event in an `outbox_events` row in the payment's own transaction, so an event exists only if its payment committed. `OutboxRelay` publishes rows every second (`payment.outbox.relay-interval`) and deletes each one after Kafka acknowledges it, waiting up to 5 seconds. When Kafka is down, payments still succeed, and their events wait in the outbox until Kafka returns. Delivery is at least once, and `order-service` ignores duplicates.
+- **Idempotent payments** — `payment-service` processes each `orderId` at most once. A repeat request with the same amount gets the original response and writes no second payment or event. A repeat with a different amount gets `409 Conflict`. Amounts take at most two decimal places, so `500` and `500.00` match. A unique constraint on `payment_responses.order_id` covers concurrent first requests: the losing insert fails, and the controller retries once and returns the winner's payment. Both requests call the payment provider, and the loser's result is discarded. That's harmless with the mock provider; a real gateway needs a `PENDING` row written before the charge.
 - **Stale payments** — once a minute, `order-service` marks orders that have been in `PLACED` or `PAYMENT_INITIATED` for 5 minutes as `PAYMENT_FAILED` (`order.payment-timeout`). `PLACED` covers an order whose placement stopped between its two saves. A valid event that arrives later still sets the correct final status.
 - **Fallback writes** — the circuit breaker fallback only changes an order that's still in `PAYMENT_INITIATED`, so it can't overwrite a final status.
 - **Event transitions** — the consumer changes an order's status only when the current status allows it. A `SUCCESS` event applies to `PAYMENT_INITIATED` or `PAYMENT_FAILED`, and a `FAILED` event applies only to `PAYMENT_INITIATED`, so `PAYMENT_SUCCESS` is final and a replayed or duplicate event can't undo it.
