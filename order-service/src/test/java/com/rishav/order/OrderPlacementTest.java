@@ -42,6 +42,9 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.contains;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -272,6 +275,76 @@ class OrderPlacementTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(newOrder())))
                 .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void sameIdempotencyKey_returnsFirstOrderAndPaysOnce() throws Exception {
+        when(restTemplate.postForObject(contains("/api/payments"), any(), eq(Object.class))).thenReturn(Map.of());
+
+        long first = postOrder("key-repeat", newOrder());
+        long second = postOrder("key-repeat", newOrder());
+
+        assertEquals(first, second);
+        verify(restTemplate, times(1)).postForObject(contains("/api/payments"), any(), eq(Object.class));
+    }
+
+    @Test
+    void sameIdempotencyKey_differentBody_returns409() throws Exception {
+        when(restTemplate.postForObject(contains("/api/payments"), any(), eq(Object.class))).thenReturn(Map.of());
+        postOrder("key-conflict", newOrder());
+        Order different = Order.builder().userId(1L).productId(1L).quantity(5).build();
+
+        mockMvc.perform(post("/api/orders")
+                        .header("Idempotency-Key", "key-conflict")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(different)))
+                .andExpect(status().isConflict());
+    }
+
+    @Test
+    void noIdempotencyKey_placesEachOrder() throws Exception {
+        when(restTemplate.postForObject(contains("/api/payments"), any(), eq(Object.class))).thenReturn(Map.of());
+
+        long first = postOrder(null, newOrder());
+        long second = postOrder(null, newOrder());
+
+        assertNotEquals(first, second);
+    }
+
+    @Test
+    void blankIdempotencyKey_returns400() throws Exception {
+        mockMvc.perform(post("/api/orders")
+                        .header("Idempotency-Key", " ")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(newOrder())))
+                .andExpect(status().isBadRequest());
+    }
+
+    // The competing order is saved during the user lookup, so this request's save loses on the unique key.
+    @Test
+    void concurrentRepeat_returnsWinningOrderWithoutPaying() {
+        Order winner = Order.builder().userId(1L).productId(1L).quantity(2).totalPrice(200L)
+                .status(OrderStatus.PAYMENT_INITIATED).createdAt(LocalDateTime.now()).idempotencyKey("key-race").build();
+        when(restTemplate.getForObject(contains("/api/users/"), eq(Object.class))).thenAnswer(call -> {
+            orderRepository.save(winner);
+            return Map.of("id", 1);
+        });
+
+        Order placed = orderService.placeOrder(newOrder(), "key-race");
+
+        assertEquals(winner.getId(), placed.getId());
+        verify(restTemplate, never()).postForObject(contains("/api/payments"), any(), eq(Object.class));
+    }
+
+    private long postOrder(String idempotencyKey, Order order) throws Exception {
+        var request = post("/api/orders")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(order));
+        if (idempotencyKey != null) {
+            request.header("Idempotency-Key", idempotencyKey);
+        }
+        String body = mockMvc.perform(request).andExpect(status().isOk()).andReturn().getResponse().getContentAsString();
+        return objectMapper.readTree(body).get("id").asLong();
     }
 
     private Order storedOrder(OrderStatus status, LocalDateTime createdAt) {

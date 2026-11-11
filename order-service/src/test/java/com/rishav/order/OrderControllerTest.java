@@ -62,7 +62,7 @@ class OrderControllerTest {
                 .createdAt(LocalDateTime.now())
                 .build();
 
-        when(orderService.placeOrder(any(Order.class))).thenReturn(placed);
+        when(orderService.placeOrder(any(Order.class), any())).thenReturn(placed);
 
         mockMvc.perform(post("/api/orders")
                         .contentType(MediaType.APPLICATION_JSON)
