@@ -22,6 +22,10 @@ public class OutboxEvent {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    // The Kafka record key, so every event for one order goes to the same partition, in order.
+    @Column(nullable = false)
+    private String orderId;
+
     @Column(nullable = false, length = 1000)
     private String payload;
 

@@ -23,9 +23,9 @@ public class PaymentEventPublisher {
     }
 
     // Waits for the broker so OutboxRelay deletes an outbox row only after Kafka has the event.
-    public void publishPaymentEvent(String eventPayload){
+    public void publishPaymentEvent(String orderId, String eventPayload){
         try {
-            kafkaTemplate.send(topic, eventPayload).get(SEND_TIMEOUT_SECONDS, TimeUnit.SECONDS);
+            kafkaTemplate.send(topic, orderId, eventPayload).get(SEND_TIMEOUT_SECONDS, TimeUnit.SECONDS);
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
             throw new IllegalStateException("Interrupted while publishing payment event", e);

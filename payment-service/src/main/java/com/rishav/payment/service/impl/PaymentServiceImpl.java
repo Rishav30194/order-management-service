@@ -49,7 +49,7 @@ public class PaymentServiceImpl implements PaymentService {
         // Saved in this transaction instead of sent to Kafka here: a send that times out can still reach the broker
         // after a rollback. OutboxRelay publishes the row once this commits.
         String eventJson = objectMapper.writeValueAsString(new PaymentEvent(response.orderId(), response.status()));
-        outboxEventRepository.save(OutboxEvent.builder().payload(eventJson).build());
+        outboxEventRepository.save(OutboxEvent.builder().orderId(response.orderId()).payload(eventJson).build());
 
         return response;
     }

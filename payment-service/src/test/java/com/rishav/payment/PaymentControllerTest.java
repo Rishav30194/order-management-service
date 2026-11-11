@@ -196,7 +196,9 @@ class PaymentControllerTest {
 
     private long outboxEventsFor(String orderId) {
         return outboxEventRepository.findAll().stream()
-                .filter(event -> event.getPayload().contains("\"orderId\":\"" + orderId + "\""))
+                // Matches the key and the payload, so each count also checks that the row is keyed by its order.
+                .filter(event -> orderId.equals(event.getOrderId())
+                        && event.getPayload().contains("\"orderId\":\"" + orderId + "\""))
                 .count();
     }
 }
