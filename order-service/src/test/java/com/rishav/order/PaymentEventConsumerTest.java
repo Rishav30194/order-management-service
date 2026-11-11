@@ -8,6 +8,8 @@ import org.springframework.dao.DataAccessResourceFailureException;
 
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
@@ -19,7 +21,8 @@ class PaymentEventConsumerTest {
 
     @Test
     void databaseFailure_reachesListenerErrorHandler() {
-        when(orderRepository.findById(1L)).thenThrow(new DataAccessResourceFailureException("database unavailable"));
+        when(orderRepository.updateStatusIfCurrentIn(eq(1L), any(), any()))
+                .thenThrow(new DataAccessResourceFailureException("database unavailable"));
 
         assertThrows(DataAccessResourceFailureException.class,
                 () -> consumer.consume("{\"orderId\":\"1\",\"status\":\"SUCCESS\"}"));
