@@ -34,7 +34,7 @@ class PaymentCallTimeLimitTest {
     @MockitoBean
     private RestTemplate restTemplate;
 
-    // payment-service can take several seconds when it waits for the Kafka ack, so this must not trip the time limit.
+    // Resilience4j's default 1-second time limit fails this call, so it checks that the configured limit is applied.
     @Test
     void slowPaymentCall_withinLimit_staysInitiated() {
         when(restTemplate.getForObject(contains("/api/users/"), eq(Object.class))).thenReturn(Map.of("id", 1));
