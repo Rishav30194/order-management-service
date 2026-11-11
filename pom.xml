@@ -35,6 +35,10 @@
         <spring-cloud.version>2025.1.4</spring-cloud.version>
         <lombok.version>1.18.48</lombok.version>
         <jjwt.version>0.12.6</jjwt.version>
+        <!-- Patch releases newer than the ones Spring Boot 4.1.2 manages; drop once Boot catches up. -->
+        <jackson-bom.version>3.1.8</jackson-bom.version>
+        <jackson-2-bom.version>2.21.8</jackson-2-bom.version>
+        <json-smart.version>2.6.1</json-smart.version>
     </properties>
 
     <dependencyManagement>
