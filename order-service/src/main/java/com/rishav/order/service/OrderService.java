@@ -17,4 +17,5 @@ public interface OrderService {
     Order getOrderById(Long id);
     List<Order> getAllOrders();
     int failStalePayments();
+    int expireIdempotencyKeys();
 }

@@ -47,6 +47,9 @@ public class OrderServiceImpl implements OrderService {
     @Value("${order.payment-timeout:PT5M}")
     private Duration paymentTimeout;
 
+    @Value("${order.idempotency-key-ttl:PT24H}")
+    private Duration idempotencyKeyTtl;
+
     // Deliberately not @Transactional: each save must commit before the payment call, because the
     // circuit breaker runs that call on another thread and the payment-events consumer can process
     // the result before the call returns.
@@ -164,5 +167,17 @@ public class OrderServiceImpl implements OrderService {
             log.warn("Marked {} orders PAYMENT_FAILED after no payment result for {}", failed, paymentTimeout);
         }
         return failed;
+    }
+
+    // A client retries within seconds or minutes, so a key older than its time to live only blocks reuse.
+    // After expiry, the same key places a new order.
+    @Transactional
+    @Override
+    public int expireIdempotencyKeys() {
+        int expired = orderRepository.clearIdempotencyKeysCreatedBefore(LocalDateTime.now().minus(idempotencyKeyTtl));
+        if (expired > 0) {
+            log.info("Expired {} idempotency keys older than {}", expired, idempotencyKeyTtl);
+        }
+        return expired;
     }
 }

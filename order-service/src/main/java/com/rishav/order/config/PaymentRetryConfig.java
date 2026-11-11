@@ -18,10 +18,13 @@ public class PaymentRetryConfig {
     @Bean
     public RetryTemplate paymentRetryTemplate(
             @Value("${order.payment-retry.max-retries:2}") long maxRetries,
-            @Value("${order.payment-retry.delay:200ms}") Duration delay) {
+            @Value("${order.payment-retry.delay:200ms}") Duration delay,
+            // Spreads out retries from orders that failed at the same moment, so they don't all hit payment-service together.
+            @Value("${order.payment-retry.jitter:100ms}") Duration jitter) {
         return new RetryTemplate(RetryPolicy.builder()
                 .maxRetries(maxRetries)
                 .delay(delay)
+                .jitter(jitter)
                 .multiplier(2)
                 .includes(ResourceAccessException.class, HttpServerErrorException.class)
                 .build());
