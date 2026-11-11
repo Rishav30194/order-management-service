@@ -10,6 +10,9 @@ import org.slf4j.LoggerFactory;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.stereotype.Service;
 
+import java.util.EnumSet;
+import java.util.Set;
+
 @Service
 public class PaymentEventConsumer {
 
@@ -41,18 +44,29 @@ public class PaymentEventConsumer {
         updateOrderStatus(paymentEvent);
     }
 
+    // PAYMENT_SUCCESS is final. A late SUCCESS still replaces a timeout's PAYMENT_FAILED, but no event undoes a success.
     private void updateOrderStatus(PaymentEvent event) {
-        Order order = orderRepository.findById(event.orderId()).orElse(null);
-        if (order == null) {
-            logger.warn("Received payment event for unknown order id: {}", event.orderId());
-            return;
-        }
         OrderStatus newStatus = switch (event.status()) {
             case SUCCESS -> OrderStatus.PAYMENT_SUCCESS;
             case FAILED -> OrderStatus.PAYMENT_FAILED;
         };
-        order.setStatus(newStatus);
-        orderRepository.save(order);
-        logger.info("Order [{}] status updated to: {}", event.orderId(), newStatus);
+        Set<OrderStatus> allowedFrom = switch (event.status()) {
+            case SUCCESS -> EnumSet.of(OrderStatus.PAYMENT_INITIATED, OrderStatus.PAYMENT_FAILED);
+            case FAILED -> EnumSet.of(OrderStatus.PAYMENT_INITIATED);
+        };
+
+        if (orderRepository.updateStatusIfCurrentIn(event.orderId(), allowedFrom, newStatus) == 1) {
+            logger.info("Order [{}] status updated to: {}", event.orderId(), newStatus);
+            return;
+        }
+
+        Order order = orderRepository.findById(event.orderId()).orElse(null);
+        if (order == null) {
+            logger.warn("Received payment event for unknown order id: {}", event.orderId());
+        } else if (order.getStatus() == newStatus) {
+            logger.info("Order [{}] is already {}; duplicate event ignored", event.orderId(), newStatus);
+        } else {
+            logger.warn("Ignored {} event for order [{}] in status {}", event.status(), event.orderId(), order.getStatus());
+        }
     }
 }

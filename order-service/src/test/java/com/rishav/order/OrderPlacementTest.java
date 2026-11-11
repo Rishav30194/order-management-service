@@ -176,6 +176,24 @@ class OrderPlacementTest {
     }
 
     @Test
+    void failedEventAfterSuccess_keepsSuccess() {
+        Order paid = orderRepository.save(storedOrder(OrderStatus.PAYMENT_SUCCESS, LocalDateTime.now()));
+
+        paymentEventConsumer.consume("{\"orderId\":\"" + paid.getId() + "\",\"status\":\"FAILED\"}");
+
+        assertEquals(OrderStatus.PAYMENT_SUCCESS, storedStatus(paid));
+    }
+
+    @Test
+    void failedEvent_onInitiated_setsFailed() {
+        Order initiated = orderRepository.save(storedOrder(OrderStatus.PAYMENT_INITIATED, LocalDateTime.now()));
+
+        paymentEventConsumer.consume("{\"orderId\":\"" + initiated.getId() + "\",\"status\":\"FAILED\"}");
+
+        assertEquals(OrderStatus.PAYMENT_FAILED, storedStatus(initiated));
+    }
+
+    @Test
     void listenerRetriesDatabaseFailuresUntilRecovery() {
         assertSame(paymentEventErrorHandler,
                 ReflectionTestUtils.getField(kafkaListenerContainerFactory, AbstractKafkaListenerContainerFactory.class, "commonErrorHandler"));
