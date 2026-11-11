@@ -36,7 +36,7 @@ public class UserServiceImpl implements UserService {
     @Transactional(readOnly = true)
     @Override
     public User getUserById(Long id) {
-        return userRepository.findById(id).orElseThrow(() -> new UserNotFoundException(id));
+        return findUser(id);
     }
 
     @Transactional(readOnly = true)
@@ -48,7 +48,7 @@ public class UserServiceImpl implements UserService {
     @Transactional
     @Override
     public User updateUser(Long id, User user) {
-        User existing = getUserById(id);
+        User existing = findUser(id);
         existing.setName(user.getName());
         existing.setEmail(user.getEmail());
         existing.setPassword(passwordEncoder.encode(user.getPassword()));
@@ -70,5 +70,10 @@ public class UserServiceImpl implements UserService {
             throw new InvalidCredentialsException();
         }
         return new LoginResponse(jwtUtil.generateToken(user.getEmail()));
+    }
+
+    // Not getUserById: a call through 'this' bypasses the transactional proxy (Sonar java:S6809).
+    private User findUser(Long id) {
+        return userRepository.findById(id).orElseThrow(() -> new UserNotFoundException(id));
     }
 }
