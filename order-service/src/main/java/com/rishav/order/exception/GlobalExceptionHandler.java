@@ -30,6 +30,17 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(HttpStatus.NOT_FOUND).body(ex.getResponseBodyAsString());
     }
 
+    @ExceptionHandler(DownstreamUnavailableException.class)
+    public ResponseEntity<String> handleDownstreamUnavailable(DownstreamUnavailableException ex) {
+        return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).body(ex.getMessage());
+    }
+
+    // Only the total price calculation uses exact arithmetic, so an overflow means the order is too large.
+    @ExceptionHandler(ArithmeticException.class)
+    public ResponseEntity<String> handleOverflow(ArithmeticException ex) {
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("Order total is too large");
+    }
+
     @ExceptionHandler(RuntimeException.class)
     public ResponseEntity<String> handleRuntime(RuntimeException ex) {
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(ex.getMessage());
