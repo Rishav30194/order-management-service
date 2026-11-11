@@ -28,6 +28,10 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
     int updateStatusIfCurrentIn(Long id, Collection<OrderStatus> from, OrderStatus to);
 
     @Modifying
+    @Query("update Order o set o.idempotencyKey = null where o.idempotencyKey is not null and o.createdAt < :cutoff")
+    int clearIdempotencyKeysCreatedBefore(LocalDateTime cutoff);
+
+    @Modifying
     @Query("update Order o set o.status = :to where o.status in :from and o.createdAt < :cutoff")
     int updateStatusIfCreatedBefore(Collection<OrderStatus> from, OrderStatus to, LocalDateTime cutoff);
 }

@@ -37,6 +37,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
@@ -334,6 +335,23 @@ class OrderPlacementTest {
 
         assertEquals(winner.getId(), placed.getId());
         verify(restTemplate, never()).postForObject(contains("/api/payments"), any(), eq(Object.class));
+    }
+
+    @Test
+    void oldIdempotencyKeys_expireAndCanBeReused() throws Exception {
+        when(restTemplate.postForObject(contains("/api/payments"), any(), eq(Object.class))).thenReturn(Map.of());
+        Order old = storedOrder(OrderStatus.PAYMENT_SUCCESS, LocalDateTime.now().minusHours(25));
+        old.setIdempotencyKey("key-old");
+        old = orderRepository.save(old);
+        Order recent = storedOrder(OrderStatus.PAYMENT_SUCCESS, LocalDateTime.now());
+        recent.setIdempotencyKey("key-recent");
+        recent = orderRepository.save(recent);
+
+        orderService.expireIdempotencyKeys();
+
+        assertNull(orderRepository.findById(old.getId()).orElseThrow().getIdempotencyKey());
+        assertEquals("key-recent", orderRepository.findById(recent.getId()).orElseThrow().getIdempotencyKey());
+        assertNotEquals(old.getId(), postOrder("key-old", newOrder()));
     }
 
     private long postOrder(String idempotencyKey, Order order) throws Exception {
