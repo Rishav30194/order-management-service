@@ -26,6 +26,7 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.util.backoff.BackOff;
 import org.springframework.util.backoff.BackOffExecution;
 import org.springframework.web.client.HttpClientErrorException;
+import org.springframework.web.client.HttpServerErrorException;
 import org.springframework.web.client.ResourceAccessException;
 import org.springframework.web.client.RestTemplate;
 
@@ -235,6 +236,42 @@ class OrderPlacementTest {
                         .content(objectMapper.writeValueAsString(newOrder())))
                 .andExpect(status().isNotFound())
                 .andExpect(content().string("User not found"));
+    }
+
+    @Test
+    void userServiceDown_returns503() throws Exception {
+        when(restTemplate.getForObject(contains("/api/users/"), eq(Object.class)))
+                .thenThrow(new ResourceAccessException("connection refused"));
+
+        mockMvc.perform(post("/api/orders")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(newOrder())))
+                .andExpect(status().isServiceUnavailable())
+                .andExpect(content().string("user-service is unavailable"));
+    }
+
+    @Test
+    void productServiceError_returns503() throws Exception {
+        when(restTemplate.getForObject(contains("/api/products/"), eq(ProductDTO.class)))
+                .thenThrow(HttpServerErrorException.create(HttpStatus.INTERNAL_SERVER_ERROR, "Internal Server Error",
+                        HttpHeaders.EMPTY, new byte[0], StandardCharsets.UTF_8));
+
+        mockMvc.perform(post("/api/orders")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(newOrder())))
+                .andExpect(status().isServiceUnavailable())
+                .andExpect(content().string("product-service is unavailable"));
+    }
+
+    @Test
+    void totalPriceOverflow_returns400() throws Exception {
+        when(restTemplate.getForObject(contains("/api/products/"), eq(ProductDTO.class)))
+                .thenReturn(new ProductDTO(1L, "Widget", "A widget", Long.MAX_VALUE, 5, "Tools"));
+
+        mockMvc.perform(post("/api/orders")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(newOrder())))
+                .andExpect(status().isBadRequest());
     }
 
     private Order storedOrder(OrderStatus status, LocalDateTime createdAt) {

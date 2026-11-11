@@ -231,7 +231,7 @@ All requests go through the gateway at `http://localhost:8085`.
 
 | Method | Path | Auth | Description |
 |---|---|---|---|
-| `POST` | `/api/orders` | public | Place an order and trigger payment (404 if the user or product doesn't exist) |
+| `POST` | `/api/orders` | public | Place an order and trigger payment (404 if the user or product doesn't exist, 503 if user-service or product-service is unavailable, 400 if the total overflows) |
 | `GET` | `/api/orders` | public | List all orders |
 | `GET` | `/api/orders/{id}` | public | Get order by ID (404 if not found) |
 

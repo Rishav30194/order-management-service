@@ -4,6 +4,7 @@ import com.rishav.order.config.JwtUtil;
 import com.rishav.order.constant.OrderStatus;
 import com.rishav.order.dto.PaymentRequest;
 import com.rishav.order.dto.ProductDTO;
+import com.rishav.order.exception.DownstreamUnavailableException;
 import com.rishav.order.exception.OrderNotFoundException;
 import com.rishav.order.model.Order;
 import com.rishav.order.repository.OrderRepository;
@@ -17,6 +18,8 @@ import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.client.HttpServerErrorException;
+import org.springframework.web.client.ResourceAccessException;
 import org.springframework.web.client.RestTemplate;
 
 import java.math.BigDecimal;
@@ -45,18 +48,18 @@ public class OrderServiceImpl implements OrderService {
     @Override
     public Order placeOrder(Order order) {
         String userUrl = "http://USER-SERVICE/api/users/" + order.getUserId();
-        Object userResponse = restTemplate.getForObject(userUrl, Object.class);
+        Object userResponse = fetch(userUrl, Object.class, "user-service");
         if (userResponse == null) {
             throw new RuntimeException("User not found with ID: " + order.getUserId());
         }
 
         String productUrl = "http://PRODUCT-SERVICE/api/products/" + order.getProductId();
-        ProductDTO product = restTemplate.getForObject(productUrl, ProductDTO.class);
+        ProductDTO product = fetch(productUrl, ProductDTO.class, "product-service");
         if (product == null) {
             throw new RuntimeException("Product not found with ID: " + order.getProductId());
         }
 
-        order.setTotalPrice(product.price() * order.getQuantity());
+        order.setTotalPrice(Math.multiplyExact(product.price(), order.getQuantity()));
         order.setStatus(OrderStatus.PLACED);
         order.setCreatedAt(LocalDateTime.now());
         Order savedOrder = orderRepository.save(order);
@@ -89,6 +92,16 @@ public class OrderServiceImpl implements OrderService {
                     return orderRepository.findById(initiatedOrder.getId()).orElseThrow();
                 }
         );
+    }
+
+    // A 4xx still propagates, so an unknown user or product stays a 404. IllegalStateException is the load
+    // balancer's error when the service has no registered instance.
+    private <T> T fetch(String url, Class<T> type, String service) {
+        try {
+            return restTemplate.getForObject(url, type);
+        } catch (ResourceAccessException | HttpServerErrorException | IllegalStateException e) {
+            throw new DownstreamUnavailableException(service, e);
+        }
     }
 
     @Transactional(readOnly = true)
