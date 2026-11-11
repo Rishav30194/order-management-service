@@ -21,6 +21,7 @@ import org.springframework.web.client.RestTemplate;
 import java.math.BigDecimal;
 import java.time.Duration;
 import java.time.LocalDateTime;
+import java.util.EnumSet;
 import java.util.List;
 
 @Slf4j
@@ -103,8 +104,9 @@ public class OrderServiceImpl implements OrderService {
     @Override
     public int failStalePayments() {
         LocalDateTime cutoff = LocalDateTime.now().minus(paymentTimeout);
+        // PLACED is included because an order stays there if placement stops between its two saves.
         int failed = orderRepository.updateStatusIfCreatedBefore(
-                OrderStatus.PAYMENT_INITIATED, OrderStatus.PAYMENT_FAILED, cutoff);
+                EnumSet.of(OrderStatus.PLACED, OrderStatus.PAYMENT_INITIATED), OrderStatus.PAYMENT_FAILED, cutoff);
         if (failed > 0) {
             log.warn("Marked {} orders PAYMENT_FAILED after no payment result for {}", failed, paymentTimeout);
         }

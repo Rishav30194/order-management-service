@@ -8,6 +8,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.util.Collection;
 
 public interface OrderRepository extends JpaRepository<Order, Long> {
 
@@ -18,6 +19,6 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
     int updateStatusIfCurrent(Long id, OrderStatus from, OrderStatus to);
 
     @Modifying
-    @Query("update Order o set o.status = :to where o.status = :from and o.createdAt < :cutoff")
-    int updateStatusIfCreatedBefore(OrderStatus from, OrderStatus to, LocalDateTime cutoff);
+    @Query("update Order o set o.status = :to where o.status in :from and o.createdAt < :cutoff")
+    int updateStatusIfCreatedBefore(Collection<OrderStatus> from, OrderStatus to, LocalDateTime cutoff);
 }

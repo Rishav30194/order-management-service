@@ -4,7 +4,8 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
-// Catches every case where a payment result never arrives, including malformed events with no usable order ID.
+// Catches every case where a payment result never arrives, including malformed events with no usable order ID
+// and orders left in PLACED when placement stops between its two saves.
 // A valid event that arrives later still sets the correct final status.
 @Component
 @RequiredArgsConstructor

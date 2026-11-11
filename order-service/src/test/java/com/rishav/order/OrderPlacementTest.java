@@ -159,12 +159,16 @@ class OrderPlacementTest {
         Order stale = orderRepository.save(storedOrder(OrderStatus.PAYMENT_INITIATED, LocalDateTime.now().minusMinutes(10)));
         Order recent = orderRepository.save(storedOrder(OrderStatus.PAYMENT_INITIATED, LocalDateTime.now()));
         Order finished = orderRepository.save(storedOrder(OrderStatus.PAYMENT_SUCCESS, LocalDateTime.now().minusMinutes(10)));
+        Order stalePlaced = orderRepository.save(storedOrder(OrderStatus.PLACED, LocalDateTime.now().minusMinutes(10)));
+        Order recentPlaced = orderRepository.save(storedOrder(OrderStatus.PLACED, LocalDateTime.now()));
 
         orderService.failStalePayments();
 
         assertEquals(OrderStatus.PAYMENT_FAILED, storedStatus(stale));
         assertEquals(OrderStatus.PAYMENT_INITIATED, storedStatus(recent));
         assertEquals(OrderStatus.PAYMENT_SUCCESS, storedStatus(finished));
+        assertEquals(OrderStatus.PAYMENT_FAILED, storedStatus(stalePlaced));
+        assertEquals(OrderStatus.PLACED, storedStatus(recentPlaced));
 
         paymentEventConsumer.consume("{\"orderId\":\"" + stale.getId() + "\",\"status\":\"SUCCESS\"}");
 
