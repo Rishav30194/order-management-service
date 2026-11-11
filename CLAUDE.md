@@ -1,7 +1,8 @@
 # Claude Agent Instructions — Order Management Service
 
 Read this file first, then `README.md` for full architecture and API reference.
-For the Java 25 migration, read `JAVA25_MIGRATION.md` for status and verification steps.
+To verify a change, run `mvn test`, then `python3 scripts/verify_e2e.py` for anything that touches
+service wiring. The script builds and runs the full Docker stack and exits nonzero if a check fails.
 
 ---
 
