@@ -112,6 +112,7 @@ stateDiagram-v2
     direction LR
     [*] --> PLACED: order saved
     PLACED --> PAYMENT_INITIATED: before the payment call
+    PLACED --> PAYMENT_FAILED: 5-minute timeout
     PAYMENT_INITIATED --> PAYMENT_SUCCESS: SUCCESS event
     PAYMENT_INITIATED --> PAYMENT_FAILED: FAILED event, fallback, or 5-minute timeout
     PAYMENT_FAILED --> PAYMENT_SUCCESS: late SUCCESS event
@@ -341,5 +342,5 @@ Service tests use `@SpringBootTest` + `MockMvc`, and `PaymentEventConsumerTest` 
 - **AOT cache** — each Docker image trains a Java ahead-of-time cache during the build, which roughly halves service startup time.
 - **Consumer failures** — malformed events and events with an unknown status are logged and skipped. Database failures retry every 5 seconds until the database recovers.
 - **Publishing** — `payment-service` waits up to 5 seconds for Kafka to acknowledge an event. If publishing fails, the payment rolls back and returns an error, and `order-service` marks the order `PAYMENT_FAILED`.
-- **Stale payments** — once a minute, `order-service` marks orders that have been in `PAYMENT_INITIATED` for 5 minutes as `PAYMENT_FAILED` (`order.payment-timeout`). A valid event that arrives later still sets the correct final status.
+- **Stale payments** — once a minute, `order-service` marks orders that have been in `PLACED` or `PAYMENT_INITIATED` for 5 minutes as `PAYMENT_FAILED` (`order.payment-timeout`). `PLACED` covers an order whose placement stopped between its two saves. A valid event that arrives later still sets the correct final status.
 - **Fallback writes** — the circuit breaker fallback only changes an order that's still in `PAYMENT_INITIATED`, so it can't overwrite a final status.
