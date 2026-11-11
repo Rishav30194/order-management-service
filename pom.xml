@@ -68,6 +68,32 @@
                 <version>${jjwt.version}</version>
                 <scope>runtime</scope>
             </dependency>
+            <!-- Patched versions of transitive dependencies with known CVEs. The latest Spring Boot, Spring Cloud,
+                 Eureka, and Kafka releases still pull the vulnerable ones; drop each pin once they catch up. -->
+            <dependency>
+                <!-- From Kafka clients. CVE-2026-106449, CVE-2026-106450, CVE-2026-106451 -->
+                <groupId>at.yawk.lz4</groupId>
+                <artifactId>lz4-java</artifactId>
+                <version>1.11.4</version>
+            </dependency>
+            <dependency>
+                <!-- From Kafka clients. CVE-2026-93451, CVE-2026-108106, CVE-2026-116590 -->
+                <groupId>org.xerial.snappy</groupId>
+                <artifactId>snappy-java</artifactId>
+                <version>1.1.10.9</version>
+            </dependency>
+            <dependency>
+                <!-- From the Eureka server. CVE-2026-102554 -->
+                <groupId>com.google.guava</groupId>
+                <artifactId>guava</artifactId>
+                <version>33.7.2-jre</version>
+            </dependency>
+            <dependency>
+                <!-- From the Eureka client. CVE-2020-13956 -->
+                <groupId>org.apache.httpcomponents</groupId>
+                <artifactId>httpclient</artifactId>
+                <version>4.5.14</version>
+            </dependency>
         </dependencies>
     </dependencyManagement>
 </project>
